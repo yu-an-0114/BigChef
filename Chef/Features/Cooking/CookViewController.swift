@@ -10,6 +10,7 @@ import UIKit
 import SwiftUI
 import AVFoundation
 import Vision
+import SceneKit
 /// 「開始烹飪」AR 流程 —— 加入手勢辨識
 final class CookViewController: UIViewController, ARGestureDelegate {
 
@@ -36,7 +37,8 @@ final class CookViewController: UIViewController, ARGestureDelegate {
     private let prevBtn   = UIButton(type: .system)
     private let nextBtn   = UIButton(type: .system)
     private let completeBtn = UIButton(type: .system)
-    private let qaButton  = UIButton(type: .system)
+    private let qaModelView = SCNView()
+    private var qaTapRecognizer: UITapGestureRecognizer?
 
     // 手勢狀態 UI
     private let gestureStatusLabel = UILabel()
@@ -156,7 +158,7 @@ final class CookViewController: UIViewController, ARGestureDelegate {
         stepLabel.font = .preferredFont(forTextStyle: .headline)
         stepLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stepLabel)
-        setupQAButton()
+        setupQAInteractionView()
 
         // ▼ Prev / Next / Complete Buttons
         let navigationStack = UIStackView(arrangedSubviews: [prevBtn, nextBtn])
@@ -186,11 +188,13 @@ final class CookViewController: UIViewController, ARGestureDelegate {
 
         NSLayoutConstraint.activate([
             stepLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            stepLabel.trailingAnchor.constraint(equalTo: qaButton.leadingAnchor, constant: -12),
+            stepLabel.trailingAnchor.constraint(equalTo: qaModelView.leadingAnchor, constant: -12),
             stepLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
 
-            qaButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
-            qaButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            qaModelView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            qaModelView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            qaModelView.widthAnchor.constraint(equalToConstant: 56),
+            qaModelView.heightAnchor.constraint(equalToConstant: 56),
 
             gestureStatusLabel.topAnchor.constraint(equalTo: stepLabel.bottomAnchor, constant: 8),
             gestureStatusLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
@@ -212,7 +216,6 @@ final class CookViewController: UIViewController, ARGestureDelegate {
         ])
 
         updateStepLabel()
-
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -261,7 +264,7 @@ final class CookViewController: UIViewController, ARGestureDelegate {
             }
         }
     }
-    
+
     // MARK: - Helpers
 
     private func updateStepLabel() {
@@ -311,35 +314,54 @@ final class CookViewController: UIViewController, ARGestureDelegate {
         present(hostingController, animated: true)
     }
 
-    private func setupQAButton() {
-        qaButton.translatesAutoresizingMaskIntoConstraints = false
-        if #available(iOS 15.0, *) {
-            var configuration = UIButton.Configuration.filled()
-            configuration.title = "烹飪求助"
-            configuration.image = UIImage(systemName: "questionmark.circle")
-            configuration.imagePadding = 6
-            configuration.baseBackgroundColor = UIColor.black.withAlphaComponent(0.35)
-            configuration.baseForegroundColor = .white
-            configuration.cornerStyle = .capsule
-            configuration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
-            qaButton.configuration = configuration
-        } else {
-            qaButton.setTitle("烹飪求助", for: .normal)
-            qaButton.setTitleColor(.white, for: .normal)
-            qaButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
-            qaButton.backgroundColor = UIColor.black.withAlphaComponent(0.35)
-            qaButton.layer.cornerRadius = 16
-            qaButton.layer.masksToBounds = true
-            qaButton.setImage(UIImage(systemName: "questionmark.circle"), for: .normal)
-            qaButton.tintColor = .white
-            qaButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
-            qaButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 4)
+    private func setupQAInteractionView() {
+        qaModelView.translatesAutoresizingMaskIntoConstraints = false
+        qaModelView.backgroundColor = .clear
+        qaModelView.scene = SCNScene()
+        qaModelView.autoenablesDefaultLighting = true
+        qaModelView.allowsCameraControl = false
+        qaModelView.isUserInteractionEnabled = true
+        qaModelView.accessibilityLabel = "烹飪求助"
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(askCookQuestionTapped))
+        qaModelView.addGestureRecognizer(tap)
+        qaTapRecognizer = tap
+
+        view.addSubview(qaModelView)
+        loadQAInteractionModel()
+        setQAInteractionEnabled(true)
+    }
+
+    private func loadQAInteractionModel() {
+        guard let url = Bundle.main.url(forResource: "ingredient", withExtension: "usdz") else {
+            return
         }
-        qaButton.accessibilityLabel = "烹飪求助"
-        qaButton.addTarget(self, action: #selector(askCookQuestionTapped), for: .touchUpInside)
-        qaButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        qaButton.setContentHuggingPriority(.required, for: .horizontal)
-        view.addSubview(qaButton)
+
+        do {
+            let scene = try SCNScene(url: url, options: nil)
+            qaModelView.scene = scene
+            qaModelView.scene?.background.contents = UIColor.clear
+            qaModelView.pointOfView = makeQAInteractionCameraIfNeeded(for: scene)
+        } catch {
+            print("⚠️ [CookViewController] 無法載入 ingredient.usdz: \(error)")
+        }
+    }
+
+    private func makeQAInteractionCameraIfNeeded(for scene: SCNScene) -> SCNNode? {
+        if let cameraNode = scene.rootNode.childNodes.first(where: { $0.camera != nil }) {
+            return cameraNode
+        }
+
+        let cameraNode = SCNNode()
+        cameraNode.camera = SCNCamera()
+        cameraNode.position = SCNVector3(x: 0, y: 0, z: 2.5)
+        scene.rootNode.addChildNode(cameraNode)
+        return cameraNode
+    }
+
+    private func setQAInteractionEnabled(_ enabled: Bool) {
+        qaModelView.isUserInteractionEnabled = enabled
+        qaModelView.alpha = enabled ? 1.0 : 0.5
     }
 
     @objc private func askCookQuestionTapped() {
@@ -385,7 +407,7 @@ final class CookViewController: UIViewController, ARGestureDelegate {
             return
         }
 
-        qaButton.isEnabled = false
+        setQAInteractionEnabled(false)
 
         let registryContext = CookRecipeContextRegistry.shared.context(matching: steps)
         let effectiveRecipeContext: CookQARecipeContext = qaRecipeContext
@@ -413,7 +435,7 @@ final class CookViewController: UIViewController, ARGestureDelegate {
                 )
 
                 await MainActor.run { [weak self] in
-                    self?.qaButton.isEnabled = true
+                    self?.setQAInteractionEnabled(true)
                     self?.presentQAAnswer(response.answer)
                 }
                 print("✅ [CookQA] 成功取得回覆")
@@ -428,7 +450,7 @@ final class CookViewController: UIViewController, ARGestureDelegate {
                 print("❌ [CookQA] 發送失敗 - \(message)")
 
                 await MainActor.run { [weak self] in
-                    self?.qaButton.isEnabled = true
+                    self?.setQAInteractionEnabled(true)
                     self?.presentQAError(message: message)
                 }
             }
