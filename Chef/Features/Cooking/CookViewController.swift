@@ -12,7 +12,7 @@ import AVFoundation
 import Vision
 import SceneKit
 /// 「開始烹飪」AR 流程 —— 加入手勢辨識
-final class CookViewController: UIViewController, ARGestureDelegate {
+final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRecognizerDelegate {
 
     // MARK: - AR Session
     private let gestureSession = ARSessionAdapter()
@@ -39,6 +39,10 @@ final class CookViewController: UIViewController, ARGestureDelegate {
     private let completeBtn = UIButton(type: .system)
     private let qaModelView = SCNView()
     private var qaTapRecognizer: UITapGestureRecognizer?
+    private var qaBubbleView: QASpeechBubbleView?
+    private var qaInputBubbleView: QAInputBubbleView?
+    private var qaBubbleDismissTap: UITapGestureRecognizer?
+    private var pendingDraftQuestion: String = ""
 
     // 手勢狀態 UI
     private let gestureStatusLabel = UILabel()
@@ -237,6 +241,8 @@ final class CookViewController: UIViewController, ARGestureDelegate {
         print("👋 [CookViewController] viewWillDisappear - navigationController.viewControllers.count=\(navigationController?.viewControllers.count ?? -1)")
         print("👋 [CookViewController] viewWillDisappear - parent=\(parent != nil)")
 
+        dismissQABubble(animated: false)
+
         // 移除 delegate 並停用手勢辨識
         gestureSession.removeGestureDelegate(self)
         gestureSession.setGestureEnabled(false)
@@ -364,34 +370,63 @@ final class CookViewController: UIViewController, ARGestureDelegate {
         qaModelView.alpha = enabled ? 1.0 : 0.5
     }
 
+    private func dismissQABubble(animated: Bool = true, persistDraft: Bool = true) {
+        let answerBubble = qaBubbleView
+        let inputBubble = qaInputBubbleView
+        guard answerBubble != nil || inputBubble != nil else { return }
+
+        qaBubbleView = nil
+        qaInputBubbleView = nil
+
+        let viewsToDismiss = [answerBubble, inputBubble].compactMap { $0 }
+
+        let animations = {
+            viewsToDismiss.forEach { view in
+                view.alpha = 0
+                view.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+            }
+        }
+
+        let completion: (Bool) -> Void = { [weak self] _ in
+            if let input = inputBubble {
+                input.resignFocus()
+                if persistDraft {
+                    self?.pendingDraftQuestion = input.currentDraftText()
+                }
+            }
+            viewsToDismiss.forEach { $0.removeFromSuperview() }
+            self?.removeBubbleDismissGesture()
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.2, animations: animations, completion: completion)
+        } else {
+            animations()
+            completion(true)
+        }
+        if !persistDraft {
+            pendingDraftQuestion = ""
+        }
+    }
+
+    private func installBubbleDismissGestureIfNeeded() {
+        guard qaBubbleDismissTap == nil else { return }
+        let recognizer = UITapGestureRecognizer(target: self, action: #selector(handleBackgroundTapped))
+        recognizer.cancelsTouchesInView = false
+        recognizer.delegate = self
+        view.addGestureRecognizer(recognizer)
+        qaBubbleDismissTap = recognizer
+    }
+
+    private func removeBubbleDismissGesture() {
+        guard let recognizer = qaBubbleDismissTap else { return }
+        view.removeGestureRecognizer(recognizer)
+        qaBubbleDismissTap = nil
+    }
+
     @objc private func askCookQuestionTapped() {
         guard !steps.isEmpty else { return }
-
-        let alert = UIAlertController(
-            title: "烹飪求助",
-            message: "描述目前遇到的狀況，AI 小幫手會立即提供建議。",
-            preferredStyle: .alert
-        )
-
-        alert.addTextField { textField in
-            textField.placeholder = "例：如何避免番茄出水太多？"
-            textField.clearButtonMode = .whileEditing
-        }
-
-        let submitAction = UIAlertAction(title: "送出", style: .default) { [weak self, weak alert] _ in
-            guard let self else { return }
-            let question = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            guard !question.isEmpty else {
-                self.presentQAError(message: "請輸入想詢問的問題內容。")
-                return
-            }
-            self.submitCookQuestion(question)
-        }
-
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        alert.addAction(submitAction)
-
-        present(alert, animated: true)
+        showQAInputBubble()
     }
 
     private func submitCookQuestion(_ question: String) {
@@ -401,6 +436,8 @@ final class CookViewController: UIViewController, ARGestureDelegate {
             presentQAError(message: "目前無法擷取相機畫面，請稍後再試。")
             return
         }
+
+        dismissQABubble(persistDraft: false)
 
         guard let base64Image = ImageCompressor.compressToBase64(image: screenshot) else {
             presentQAError(message: "圖片處理失敗，請稍後再試。")
@@ -465,10 +502,99 @@ final class CookViewController: UIViewController, ARGestureDelegate {
         }
     }
 
+    private func showQAInputBubble() {
+        dismissQABubble(animated: false)
+
+        let bubble = QAInputBubbleView()
+        bubble.translatesAutoresizingMaskIntoConstraints = false
+        bubble.alpha = 0
+        bubble.transform = CGAffineTransform(scaleX: 0.75, y: 0.75)
+
+        bubble.onSubmit = { [weak self, weak bubble] text in
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                bubble?.showValidationError("請輸入想詢問的問題內容。")
+                return
+            }
+            self?.submitCookQuestion(trimmed)
+        }
+
+        view.addSubview(bubble)
+        qaInputBubbleView = bubble
+        installBubbleDismissGestureIfNeeded()
+
+        let constraints = [
+            bubble.trailingAnchor.constraint(equalTo: qaModelView.leadingAnchor, constant: -12),
+            bubble.centerYAnchor.constraint(equalTo: qaModelView.centerYAnchor),
+            bubble.widthAnchor.constraint(lessThanOrEqualToConstant: 240),
+            bubble.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 16)
+        ]
+        constraints.last?.priority = .defaultHigh
+        NSLayoutConstraint.activate(constraints)
+
+        view.layoutIfNeeded()
+
+        bubble.setDraftText(pendingDraftQuestion)
+
+        UIView.animate(
+            withDuration: 0.35,
+            delay: 0,
+            usingSpringWithDamping: 0.75,
+            initialSpringVelocity: 0.6,
+            options: [.curveEaseOut]
+        ) {
+            bubble.alpha = 1
+            bubble.transform = .identity
+        } completion: { [weak bubble] _ in
+            bubble?.focus()
+        }
+    }
+
     private func presentQAAnswer(_ answer: String) {
-        let alert = UIAlertController(title: "AI 小幫手回覆", message: answer, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "好的", style: .default))
-        present(alert, animated: true)
+        dismissQABubble(animated: false, persistDraft: false)
+
+        let bubble = QASpeechBubbleView()
+        bubble.translatesAutoresizingMaskIntoConstraints = false
+        bubble.configure(text: answer)
+        bubble.alpha = 0
+        bubble.transform = CGAffineTransform(scaleX: 0.75, y: 0.75)
+
+        let tapToDismiss = UITapGestureRecognizer(target: self, action: #selector(handleBubbleTapped))
+        bubble.addGestureRecognizer(tapToDismiss)
+
+        view.addSubview(bubble)
+        qaBubbleView = bubble
+        installBubbleDismissGestureIfNeeded()
+
+        let constraints = [
+            bubble.trailingAnchor.constraint(equalTo: qaModelView.leadingAnchor, constant: -12),
+            bubble.centerYAnchor.constraint(equalTo: qaModelView.centerYAnchor),
+            bubble.widthAnchor.constraint(lessThanOrEqualToConstant: 260),
+            bubble.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 16)
+        ]
+        constraints.last?.priority = .defaultHigh
+        NSLayoutConstraint.activate(constraints)
+
+        view.layoutIfNeeded()
+
+        UIView.animate(
+            withDuration: 0.35,
+            delay: 0,
+            usingSpringWithDamping: 0.75,
+            initialSpringVelocity: 0.6,
+            options: [.curveEaseOut]
+        ) {
+            bubble.alpha = 1
+            bubble.transform = .identity
+        }
+    }
+
+    @objc private func handleBubbleTapped() {
+        dismissQABubble()
+    }
+
+    @objc private func handleBackgroundTapped() {
+        dismissQABubble()
     }
 
     private func presentQAError(message: String) {
@@ -573,5 +699,375 @@ extension CookViewController {
             self?.gestureStatusLabel.text = "手勢辨識錯誤：\(error.localizedDescription)"
             self?.gestureStatusLabel.backgroundColor = UIColor.systemRed.withAlphaComponent(0.6)
         }
+    }
+}
+
+// MARK: - UIGestureRecognizerDelegate
+extension CookViewController {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if let bubble = qaBubbleView, let touchedView = touch.view, touchedView.isDescendant(of: bubble) {
+            return false
+        }
+        if let inputBubble = qaInputBubbleView, let touchedView = touch.view, touchedView.isDescendant(of: inputBubble) {
+            return false
+        }
+        return true
+    }
+}
+
+// MARK: - QA Bubbles
+private final class QAInputBubbleView: UIView, UITextViewDelegate {
+    var onSubmit: ((String) -> Void)?
+
+    private let containerView = UIView()
+    private let tailView = SpeechBubbleTailView()
+    private let titleLabel = UILabel()
+    private let textView = UITextView()
+    private let placeholderLabel = UILabel()
+    private let sendButton = UIButton(type: .system)
+    private let errorLabel = UILabel()
+
+    private let contentInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setup() {
+        translatesAutoresizingMaskIntoConstraints = false
+        backgroundColor = .clear
+
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.backgroundColor = .white
+        containerView.layer.cornerRadius = 18
+        containerView.layer.borderColor = UIColor.black.cgColor
+        containerView.layer.borderWidth = 2
+        containerView.layer.shadowColor = UIColor(red: 1.0, green: 0.6, blue: 0.6, alpha: 0.6).cgColor
+        containerView.layer.shadowOpacity = 0.6
+        containerView.layer.shadowRadius = 6
+        containerView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        containerView.layer.masksToBounds = false
+        addSubview(containerView)
+
+        tailView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(tailView)
+
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        titleLabel.text = "Question❓"
+        titleLabel.textColor = .black
+        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+
+        textView.translatesAutoresizingMaskIntoConstraints = false
+        textView.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        textView.layer.cornerRadius = 12
+        textView.layer.borderColor = UIColor.black.withAlphaComponent(0.15).cgColor
+        textView.layer.borderWidth = 1
+        textView.textContainerInset = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        textView.font = .systemFont(ofSize: 15)
+        textView.textColor = .black
+        textView.tintColor = .systemBlue
+        textView.keyboardAppearance = .light
+        textView.returnKeyType = .send
+        textView.isScrollEnabled = false
+        textView.delegate = self
+
+        placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
+        placeholderLabel.text = ""
+        placeholderLabel.textColor = UIColor.black.withAlphaComponent(0.3)
+        placeholderLabel.font = .systemFont(ofSize: 15)
+        textView.addSubview(placeholderLabel)
+
+        sendButton.translatesAutoresizingMaskIntoConstraints = false
+        sendButton.setTitle("送出", for: .normal)
+        sendButton.setTitleColor(.white, for: .normal)
+        sendButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        sendButton.backgroundColor = UIColor.systemBlue
+        sendButton.layer.cornerRadius = 12
+        sendButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 22, bottom: 10, right: 22)
+        sendButton.addTarget(self, action: #selector(handleSendTapped), for: .touchUpInside)
+        sendButton.isEnabled = false
+        sendButton.alpha = 0.5
+
+        errorLabel.translatesAutoresizingMaskIntoConstraints = false
+        errorLabel.textColor = UIColor.systemRed
+        errorLabel.font = .systemFont(ofSize: 13)
+        errorLabel.numberOfLines = 0
+        errorLabel.isHidden = true
+
+        containerView.addSubview(titleLabel)
+        containerView.addSubview(textView)
+        containerView.addSubview(errorLabel)
+        containerView.addSubview(sendButton)
+
+        let minimumWidth = max(168, sendButton.intrinsicContentSize.width + contentInsets.left + contentInsets.right)
+        let widthConstraint = containerView.widthAnchor.constraint(greaterThanOrEqualToConstant: minimumWidth)
+        widthConstraint.priority = .required
+
+        let errorBottom = errorLabel.bottomAnchor.constraint(equalTo: sendButton.topAnchor, constant: -12)
+        errorBottom.priority = .defaultHigh
+
+        NSLayoutConstraint.activate([
+            containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            containerView.topAnchor.constraint(equalTo: topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            containerView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
+            widthConstraint,
+
+            tailView.leadingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -6),
+            tailView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            tailView.widthAnchor.constraint(equalToConstant: 26),
+            tailView.heightAnchor.constraint(equalToConstant: 20),
+
+            titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: contentInsets.left),
+            titleLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -contentInsets.right),
+            titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: contentInsets.top),
+
+            textView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: contentInsets.left),
+            textView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -contentInsets.right),
+            textView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            textView.heightAnchor.constraint(equalToConstant: 44),
+
+            placeholderLabel.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 16),
+            placeholderLabel.topAnchor.constraint(equalTo: textView.topAnchor, constant: 12),
+
+            errorLabel.leadingAnchor.constraint(equalTo: textView.leadingAnchor),
+            errorLabel.trailingAnchor.constraint(lessThanOrEqualTo: textView.trailingAnchor),
+            errorLabel.topAnchor.constraint(equalTo: textView.bottomAnchor, constant: 6),
+            errorBottom,
+
+            sendButton.topAnchor.constraint(equalTo: errorLabel.bottomAnchor, constant: 12),
+            sendButton.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -contentInsets.right),
+            sendButton.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -contentInsets.bottom),
+            sendButton.leadingAnchor.constraint(greaterThanOrEqualTo: textView.leadingAnchor, constant: 0)
+        ])
+
+        setContentHuggingPriority(.required, for: .horizontal)
+        setContentCompressionResistancePriority(.required, for: .horizontal)
+        updateSendButtonState()
+    }
+
+    func focus() {
+        textView.becomeFirstResponder()
+    }
+
+    func resignFocus() {
+        textView.resignFirstResponder()
+    }
+
+    func setDraftText(_ text: String) {
+        textView.text = text
+        placeholderLabel.isHidden = !text.isEmpty
+        clearValidationError()
+        updateSendButtonState()
+    }
+
+    func currentDraftText() -> String {
+        textView.text ?? ""
+    }
+
+    func showValidationError(_ message: String) {
+        errorLabel.text = message
+        errorLabel.isHidden = false
+        sendButton.shake()
+    }
+
+    func clearValidationError() {
+        errorLabel.isHidden = true
+    }
+
+    @objc private func handleSendTapped() {
+        clearValidationError()
+        onSubmit?(textView.text)
+    }
+
+    func textViewDidChange(_ textView: UITextView) {
+        placeholderLabel.isHidden = !textView.text.isEmpty
+        updateSendButtonState()
+        if sendButton.isEnabled {
+            clearValidationError()
+        }
+    }
+
+    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
+        if text == "\n" {
+            handleSendTapped()
+            return false
+        }
+        return true
+    }
+
+    private func updateSendButtonState() {
+        let hasText = !textView.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        sendButton.isEnabled = hasText
+        sendButton.alpha = hasText ? 1.0 : 0.5
+    }
+
+    private final class SpeechBubbleTailView: UIView {
+        private let shapeLayer = CAShapeLayer()
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            setupLayer()
+        }
+
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+
+        private func setupLayer() {
+            backgroundColor = .clear
+            shapeLayer.fillColor = UIColor.white.cgColor
+            shapeLayer.strokeColor = UIColor.black.cgColor
+            shapeLayer.lineWidth = 2
+            shapeLayer.lineJoin = .round
+            layer.addSublayer(shapeLayer)
+
+            layer.shadowColor = UIColor(red: 1.0, green: 0.6, blue: 0.6, alpha: 0.6).cgColor
+            layer.shadowOpacity = 0.6
+            layer.shadowRadius = 6
+            layer.shadowOffset = CGSize(width: 0, height: 4)
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            let path = UIBezierPath()
+            let width = bounds.width
+            let height = bounds.height
+
+            path.move(to: CGPoint(x: 0, y: height * 0.15))
+            path.addQuadCurve(to: CGPoint(x: width, y: height / 2), controlPoint: CGPoint(x: width * 0.35, y: height * 0.1))
+            path.addQuadCurve(to: CGPoint(x: 0, y: height * 0.85), controlPoint: CGPoint(x: width * 0.35, y: height * 0.9))
+            path.close()
+
+            shapeLayer.path = path.cgPath
+            layer.shadowPath = path.cgPath
+        }
+    }
+}
+
+private final class QASpeechBubbleView: UIView {
+    private let containerView = UIView()
+    private let textLabel = UILabel()
+    private let tailView = SpeechBubbleTailView()
+
+    private let contentInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setup()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func setup() {
+        translatesAutoresizingMaskIntoConstraints = false
+        backgroundColor = .clear
+
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.backgroundColor = .white
+        containerView.layer.cornerRadius = 18
+        containerView.layer.borderColor = UIColor.black.cgColor
+        containerView.layer.borderWidth = 2
+        containerView.layer.masksToBounds = false
+        containerView.layer.shadowColor = UIColor(red: 1.0, green: 0.6, blue: 0.6, alpha: 0.6).cgColor
+        containerView.layer.shadowOpacity = 0.6
+        containerView.layer.shadowRadius = 6
+        containerView.layer.shadowOffset = CGSize(width: 0, height: 4)
+
+        addSubview(containerView)
+
+        textLabel.translatesAutoresizingMaskIntoConstraints = false
+        textLabel.numberOfLines = 0
+        textLabel.textColor = .black
+        textLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        containerView.addSubview(textLabel)
+
+        tailView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(tailView)
+
+        NSLayoutConstraint.activate([
+            containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            containerView.topAnchor.constraint(equalTo: topAnchor),
+            containerView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            containerView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -20),
+
+            textLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: contentInsets.left),
+            textLabel.trailingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -contentInsets.right),
+            textLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: contentInsets.top),
+            textLabel.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -contentInsets.bottom),
+
+            tailView.leadingAnchor.constraint(equalTo: containerView.trailingAnchor, constant: -4),
+            tailView.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+            tailView.widthAnchor.constraint(equalToConstant: 24),
+            tailView.heightAnchor.constraint(equalToConstant: 18)
+        ])
+
+        setContentHuggingPriority(.required, for: .horizontal)
+        setContentCompressionResistancePriority(.required, for: .horizontal)
+    }
+
+    func configure(text: String) {
+        textLabel.text = text
+        layoutIfNeeded()
+    }
+
+    private final class SpeechBubbleTailView: UIView {
+        private let shapeLayer = CAShapeLayer()
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            setupLayer()
+        }
+
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+
+        private func setupLayer() {
+            backgroundColor = .clear
+            shapeLayer.fillColor = UIColor.white.cgColor
+            shapeLayer.strokeColor = UIColor.black.cgColor
+            shapeLayer.lineWidth = 2
+            shapeLayer.lineJoin = .round
+            layer.addSublayer(shapeLayer)
+
+            layer.shadowColor = UIColor(red: 1.0, green: 0.6, blue: 0.6, alpha: 0.6).cgColor
+            layer.shadowOpacity = 0.6
+            layer.shadowRadius = 6
+            layer.shadowOffset = CGSize(width: 0, height: 4)
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            let path = UIBezierPath()
+            let width = bounds.width
+            let height = bounds.height
+
+            path.move(to: CGPoint(x: 0, y: height * 0.15))
+            path.addQuadCurve(to: CGPoint(x: width, y: height / 2), controlPoint: CGPoint(x: width * 0.35, y: height * 0.1))
+            path.addQuadCurve(to: CGPoint(x: 0, y: height * 0.85), controlPoint: CGPoint(x: width * 0.35, y: height * 0.9))
+            path.close()
+
+            shapeLayer.path = path.cgPath
+            layer.shadowPath = path.cgPath
+        }
+    }
+}
+
+// MARK: - UIView Convenience
+private extension UIView {
+    func shake() {
+        let animation = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
+        animation.duration = 0.3
+        animation.values = [-6, 6, -4, 4, -2, 2, 0]
+        layer.add(animation, forKey: "shake")
     }
 }
