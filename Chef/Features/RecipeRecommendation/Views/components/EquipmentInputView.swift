@@ -14,8 +14,13 @@ struct EquipmentInputView: View {
     @State private var selectedMaterial = ""
     @State private var selectedPowerSource = "無"
     @State private var validationErrors: [String] = []
+    @FocusState private var focusedField: Field?
 
     let equipmentTypes = ["鍋具", "刀具", "電器", "餐具", "其他"]
+
+    enum Field {
+        case name
+    }
     let sizes = ["小型", "中等", "大型"]
     let materials = ["不鏽鋼", "鐵", "鋁", "不沾", "陶瓷", "玻璃", "塑膠", "木材", "其他"]
     let powerSources = ["無", "電", "瓦斯", "電池"]
@@ -69,6 +74,7 @@ struct EquipmentInputView: View {
 
                             TextField("例如：平底鍋", text: $name)
                                 .textFieldStyle(PlainTextFieldStyle())
+                                .focused($focusedField, equals: .name)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
@@ -200,6 +206,14 @@ struct EquipmentInputView: View {
             }
             .navigationTitle(isEditing ? "編輯器具" : "新增器具")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // 如果是新增模式，自動聚焦到名稱欄位
+                if !isEditing {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        focusedField = .name
+                    }
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("取消") {
@@ -221,6 +235,11 @@ struct EquipmentInputView: View {
                             )
                             onSave(equipment)
                             dismiss()
+                        } else {
+                            // 驗證失敗時，自動聚焦到名稱欄位
+                            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                focusedField = .name
+                            }
                         }
                     }
                     .foregroundColor(.brandOrange)
@@ -239,7 +258,14 @@ struct EquipmentInputView: View {
 
     private func validateForm() -> Bool {
         validationErrors.removeAll()
-        return true
+
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedName.isEmpty {
+            validationErrors.append("請輸入器具名稱")
+        }
+
+        return validationErrors.isEmpty
     }
 
     // MARK: - Validation Helper Methods

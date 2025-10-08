@@ -14,9 +14,15 @@ struct IngredientInputView: View {
     @State private var selectedUnit = "個"
     @State private var preparation = ""
     @State private var validationErrors: [String] = []
+    @FocusState private var focusedField: Field?
 
     let ingredientTypes = ["主食", "蔬菜", "肉類", "蛋類", "海鮮", "調料", "其他"]
     let units = ["個", "顆", "片", "克", "毫升", "湯匙", "茶匙", "少許", "適量"]
+
+    enum Field {
+        case name
+        case amount
+    }
 
     let editingIngredient: AvailableIngredient?
     let onSave: (AvailableIngredient) -> Void
@@ -67,6 +73,7 @@ struct IngredientInputView: View {
 
                             TextField("例如：雞蛋", text: $name)
                                 .textFieldStyle(PlainTextFieldStyle())
+                                .focused($focusedField, equals: .name)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
@@ -121,6 +128,7 @@ struct IngredientInputView: View {
                                 TextField("例如：2", text: $amount)
                                     .keyboardType(.decimalPad)
                                     .textFieldStyle(PlainTextFieldStyle())
+                                    .focused($focusedField, equals: .amount)
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
@@ -210,6 +218,14 @@ struct IngredientInputView: View {
             }
             .navigationTitle(isEditing ? "編輯食材" : "新增食材")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // 如果是新增模式，自動聚焦到名稱欄位
+                if !isEditing {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        focusedField = .name
+                    }
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("取消") {
@@ -231,6 +247,13 @@ struct IngredientInputView: View {
                             )
                             onSave(ingredient)
                             dismiss()
+                        } else {
+                            // 驗證失敗時，自動聚焦到第一個未填的必填欄位
+                            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                focusedField = .name
+                            } else if amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                focusedField = .amount
+                            }
                         }
                     }
                     .foregroundColor(.brandOrange)
@@ -251,7 +274,12 @@ struct IngredientInputView: View {
     private func validateForm() -> Bool {
         validationErrors.removeAll()
 
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedAmount = amount.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedName.isEmpty {
+            validationErrors.append("請輸入食材名稱")
+        }
 
         if trimmedAmount.isEmpty {
             validationErrors.append("請輸入數量")
