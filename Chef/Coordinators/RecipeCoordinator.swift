@@ -92,13 +92,7 @@ final class RecipeCoordinator: Coordinator, ObservableObject {
         }
         pushRecipeView(with: viewModel)
     }
-    
-    func showScanning() {
-        let coordinator = ScanningCoordinator(navigationController: navigationController)
-        addChildCoordinator(coordinator)
-        coordinator.start()
-    }
-    
+
     func showCamera() {
         let coordinator = CameraCoordinator(navigationController: navigationController)
         addChildCoordinator(coordinator)

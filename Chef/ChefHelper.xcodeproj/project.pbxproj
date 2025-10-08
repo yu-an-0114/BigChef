@@ -16,14 +16,14 @@
 		68CE26CA2DD88BFF00365F01 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 68CE26C92DD88BFF00365F01 /* FirebaseFirestore */; };
 		68CE26CC2DD88C6200365F01 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 68CE26CB2DD88C6200365F01 /* FirebaseCore */; };
 		68CE26CE2DD88C6200365F01 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 68CE26CD2DD88C6200365F01 /* FirebaseStorage */; };
-		C4D133442E913769005865AE /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C4D133432E913769005865AE /* GoogleService-Info.plist */; };
+		C44D72032E967E3B00E372E9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C44D72022E967E3B00E372E9 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		30AB0E1D2DD64F2700101557 /* ChefHelper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ChefHelper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		30DC27062DD591D00081F80C /* ARKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ARKit.framework; path = System/Library/Frameworks/ARKit.framework; sourceTree = SDKROOT; };
 		30DC27082DD591E20081F80C /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
-		C4D133432E913769005865AE /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		C44D72022E967E3B00E372E9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -95,8 +95,8 @@
 		30D9E04A2DA60DC0001CDE03 = {
 			isa = PBXGroup;
 			children = (
+				C44D72022E967E3B00E372E9 /* GoogleService-Info.plist */,
 				A15218862E9509FD000950AA /* AR */,
-				C4D133432E913769005865AE /* GoogleService-Info.plist */,
 				FCCA81082DD7BC8E003346E7 /* Routing */,
 				30501B4C2DC332B100CB2198 /* Shared */,
 				30D9E0552DA60DC0001CDE03 /* ChefHelper */,
@@ -197,7 +197,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C4D133442E913769005865AE /* GoogleService-Info.plist in Resources */,
+				C44D72032E967E3B00E372E9 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -390,7 +390,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"ChefHelper/Preview Content\"";
-				DEVELOPMENT_TEAM = NS9C26NG58;
+				DEVELOPMENT_TEAM = 3QR9BMG5N4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ChefHelper/Info.plist;
