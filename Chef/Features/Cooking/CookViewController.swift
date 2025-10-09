@@ -705,102 +705,61 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
             self?.hoverProgressView.progress = max(0, min(progress, 1))
         }
     }
-}
 
-// MARK: - CookingARViewWrapper
-/// SwiftUI Wrapper，讓 CookingARView 根據 stepViewModel 自動更新
-private struct CookingARViewWrapper: View {
-    @ObservedObject var stepViewModel: StepViewModel
-    let sessionAdapter: ARSessionAdapter
-
-    var body: some View {
-        Group {
-            if let stepModel = stepViewModel.currentStepModel {
-                CookingARView(
-                    stepModel: stepModel,
-                    sessionAdapter: sessionAdapter
-                )
-                // ✅ 移除 .id() - 讓 SwiftUI 重用同一個 UIView，只透過 updateUIView 更新
-                // 這樣可以避免每次切換步驟都重新創建 ARView，減少記憶體消耗
-            }
-        }
-    }
-}
-
-// MARK: - CookingARViewWrapper
-/// SwiftUI Wrapper，讓 CookingARView 根據 stepViewModel 自動更新
-private struct CookingARViewWrapper: View {
-    @ObservedObject var stepViewModel: StepViewModel
-    let sessionAdapter: ARSessionAdapter
-
-    var body: some View {
-        Group {
-            if let stepModel = stepViewModel.currentStepModel {
-                CookingARView(
-                    stepModel: stepModel,
-                    sessionAdapter: sessionAdapter
-                )
-                // ✅ 移除 .id() - 讓 SwiftUI 重用同一個 UIView，只透過 updateUIView 更新
-                // 這樣可以避免每次切換步驟都重新創建 ARView，減少記憶體消耗
-            }
-        }
-    }
-}
-
-// MARK: - ARGestureDelegate
-extension CookViewController {
-    func didRecognizeGesture(_ gestureType: GestureType) {
-        print("🎯 [CookViewController] 接收到手勢: \(gestureType.description)")
+    func presentToast(_ message: String) {
         DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            switch gestureType {
-            case .previousStep:
-                self.prevStep()
-            case .nextStep:
-                // 如果在最後一步，「下一步」手勢應該進入完成頁面
-                if self.currentIndex == self.steps.count - 1 {
-                    print("✅ [CookViewController] 最後一步手勢觸發，進入完成頁面")
-                    self.completeRecipe()
-                } else {
-                    self.nextStep()
-                }
+            guard let self else { return }
+
+            let toastLabel = UILabel()
+            toastLabel.translatesAutoresizingMaskIntoConstraints = false
+            toastLabel.text = message
+            toastLabel.textColor = .white
+            toastLabel.font = .systemFont(ofSize: 14, weight: .medium)
+            toastLabel.textAlignment = .center
+            toastLabel.numberOfLines = 0
+            toastLabel.backgroundColor = UIColor.black.withAlphaComponent(0.75)
+            toastLabel.alpha = 0
+            toastLabel.layer.cornerRadius = 12
+            toastLabel.clipsToBounds = true
+
+            let horizontalPadding: CGFloat = 24
+            let verticalPadding: CGFloat = 12
+
+            let container = UIView()
+            container.translatesAutoresizingMaskIntoConstraints = false
+            container.backgroundColor = .clear
+            container.addSubview(toastLabel)
+
+            self.view.addSubview(container)
+
+            NSLayoutConstraint.activate([
+                container.leadingAnchor.constraint(equalTo: self.view.leadingAnchor, constant: horizontalPadding),
+                container.trailingAnchor.constraint(equalTo: self.view.trailingAnchor, constant: -horizontalPadding),
+                container.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: -verticalPadding),
+
+                toastLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                toastLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                toastLabel.topAnchor.constraint(equalTo: container.topAnchor),
+                toastLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+            ])
+
+            self.view.layoutIfNeeded()
+
+            UIView.animate(withDuration: 0.25, animations: {
+                toastLabel.alpha = 1
+            }) { _ in
+                UIView.animate(
+                    withDuration: 0.25,
+                    delay: 1.5,
+                    options: [.curveEaseInOut],
+                    animations: {
+                        toastLabel.alpha = 0
+                    }, completion: { _ in
+                        container.removeFromSuperview()
+                    }
+                )
             }
         }
-    }
-
-    func gestureStateDidChange(_ state: GestureState) {
-        print("🎯 [CookViewController] 手勢狀態變更: \(state.description)")
-        updateGestureStatusUI(state)
-    }
-
-    func hoverProgressDidUpdate(_ progress: Float) {
-        updateHoverProgressUI(progress)
-    }
-
-    func palmStateDidChange(_ palmState: PalmState) {
-        // 目前僅示意；若需要可在這裡更新額外 UI 或紀錄
-        // print("✋ palm state: \(palmState)")
-    }
-
-    func gestureRecognitionDidFail(with error: GestureRecognitionError) {
-        print("❌ [CookViewController] 手勢辨識錯誤: \(error.localizedDescription)")
-        DispatchQueue.main.async { [weak self] in
-            self?.gestureStatusLabel.text = "手勢辨識錯誤：\(error.localizedDescription)"
-            self?.gestureStatusLabel.backgroundColor = UIColor.systemRed.withAlphaComponent(0.6)
-        }
-    }
-}
-
-// MARK: - UIGestureRecognizerDelegate
-extension CookViewController {
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        if let bubble = qaBubbleView, let touchedView = touch.view, touchedView.isDescendant(of: bubble) {
-            return false
-        }
-        if let inputBubble = qaInputBubbleView, let touchedView = touch.view, touchedView.isDescendant(of: inputBubble) {
-            return false
-        }
-        return true
     }
 }
 
@@ -887,7 +846,7 @@ private final class QAInputBubbleView: UIView, UITextViewDelegate {
     var onClear: (() -> Void)?
 
     private let containerView = UIView()
-    private let tailView = SpeechBubbleTailView()
+    private let tailView = QABubbleTailView()
     private let titleLabel = UILabel()
     private let textView = UITextView()
     private let placeholderLabel = UILabel()
@@ -1127,53 +1086,12 @@ private final class QAInputBubbleView: UIView, UITextViewDelegate {
         }
     }
 
-    private final class SpeechBubbleTailView: UIView {
-        private let shapeLayer = CAShapeLayer()
-
-        override init(frame: CGRect) {
-            super.init(frame: frame)
-            setupLayer()
-        }
-
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
-
-        private func setupLayer() {
-            backgroundColor = .clear
-            shapeLayer.fillColor = UIColor.white.cgColor
-            shapeLayer.strokeColor = UIColor.black.cgColor
-            shapeLayer.lineWidth = 2
-            shapeLayer.lineJoin = .round
-            layer.addSublayer(shapeLayer)
-
-            layer.shadowColor = UIColor(red: 1.0, green: 0.6, blue: 0.6, alpha: 0.6).cgColor
-            layer.shadowOpacity = 0.6
-            layer.shadowRadius = 6
-            layer.shadowOffset = CGSize(width: 0, height: 4)
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            let path = UIBezierPath()
-            let width = bounds.width
-            let height = bounds.height
-
-            path.move(to: CGPoint(x: 0, y: height * 0.15))
-            path.addQuadCurve(to: CGPoint(x: width, y: height / 2), controlPoint: CGPoint(x: width * 0.35, y: height * 0.1))
-            path.addQuadCurve(to: CGPoint(x: 0, y: height * 0.85), controlPoint: CGPoint(x: width * 0.35, y: height * 0.9))
-            path.close()
-
-            shapeLayer.path = path.cgPath
-            layer.shadowPath = path.cgPath
-        }
-    }
 }
 
 private final class QASpeechBubbleView: UIView {
     private let containerView = UIView()
     private let textLabel = UILabel()
-    private let tailView = SpeechBubbleTailView()
+    private let tailView = QABubbleTailView()
 
     private let contentInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
 
@@ -1237,47 +1155,47 @@ private final class QASpeechBubbleView: UIView {
         textLabel.text = text
         layoutIfNeeded()
     }
+}
 
-    private final class SpeechBubbleTailView: UIView {
-        private let shapeLayer = CAShapeLayer()
+private final class QABubbleTailView: UIView {
+    private let shapeLayer = CAShapeLayer()
 
-        override init(frame: CGRect) {
-            super.init(frame: frame)
-            setupLayer()
-        }
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        setupLayer()
+    }
 
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) has not been implemented")
-        }
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
-        private func setupLayer() {
-            backgroundColor = .clear
-            shapeLayer.fillColor = UIColor.white.cgColor
-            shapeLayer.strokeColor = UIColor.black.cgColor
-            shapeLayer.lineWidth = 2
-            shapeLayer.lineJoin = .round
-            layer.addSublayer(shapeLayer)
+    private func setupLayer() {
+        backgroundColor = .clear
+        shapeLayer.fillColor = UIColor.white.cgColor
+        shapeLayer.strokeColor = UIColor.black.cgColor
+        shapeLayer.lineWidth = 2
+        shapeLayer.lineJoin = .round
+        layer.addSublayer(shapeLayer)
 
-            layer.shadowColor = UIColor(red: 1.0, green: 0.6, blue: 0.6, alpha: 0.6).cgColor
-            layer.shadowOpacity = 0.6
-            layer.shadowRadius = 6
-            layer.shadowOffset = CGSize(width: 0, height: 4)
-        }
+        layer.shadowColor = UIColor(red: 1.0, green: 0.6, blue: 0.6, alpha: 0.6).cgColor
+        layer.shadowOpacity = 0.6
+        layer.shadowRadius = 6
+        layer.shadowOffset = CGSize(width: 0, height: 4)
+    }
 
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            let path = UIBezierPath()
-            let width = bounds.width
-            let height = bounds.height
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let path = UIBezierPath()
+        let width = bounds.width
+        let height = bounds.height
 
-            path.move(to: CGPoint(x: 0, y: height * 0.15))
-            path.addQuadCurve(to: CGPoint(x: width, y: height / 2), controlPoint: CGPoint(x: width * 0.35, y: height * 0.1))
-            path.addQuadCurve(to: CGPoint(x: 0, y: height * 0.85), controlPoint: CGPoint(x: width * 0.35, y: height * 0.9))
-            path.close()
+        path.move(to: CGPoint(x: 0, y: height * 0.15))
+        path.addQuadCurve(to: CGPoint(x: width, y: height / 2), controlPoint: CGPoint(x: width * 0.35, y: height * 0.1))
+        path.addQuadCurve(to: CGPoint(x: 0, y: height * 0.85), controlPoint: CGPoint(x: width * 0.35, y: height * 0.9))
+        path.close()
 
-            shapeLayer.path = path.cgPath
-            layer.shadowPath = path.cgPath
-        }
+        shapeLayer.path = path.cgPath
+        layer.shadowPath = path.cgPath
     }
 }
 
