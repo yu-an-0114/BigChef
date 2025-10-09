@@ -56,6 +56,10 @@ extension CookViewController {
                     return
                 }
 
+                if self.handleVoiceCommandIfNeeded(from: processed) {
+                    return
+                }
+
                 self.lastRawDictation = trimmed
 
                 let existing = self.pendingDraftQuestion
@@ -132,6 +136,99 @@ extension CookViewController {
                     print("🚫 [QAVoiceService] Permissions denied.")
                 }
             }
+        }
+    }
+
+    private func handleVoiceCommandIfNeeded(from text: String) -> Bool {
+        guard let command = detectVoiceCommand(in: text) else { return false }
+        guard shouldProcessVoiceCommand(command) else { return true }
+
+        performVoiceCommand(command)
+        return true
+    }
+
+    private func detectVoiceCommand(in text: String) -> CookVoiceCommand? {
+        if let directMatch = CookVoiceCommand(rawValue: text) {
+            return directMatch
+        }
+
+        let normalized = normalizeVoiceCommandText(text)
+        return CookVoiceCommand.allCases.first { $0.rawValue == normalized }
+    }
+
+    private func normalizeVoiceCommandText(_ text: String) -> String {
+        let removalSet = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "，。！？、,.!?;；：:「」『』()（）"))
+        let filteredScalars = text.unicodeScalars.filter { !removalSet.contains($0) }
+        return String(String.UnicodeScalarView(filteredScalars))
+    }
+
+    private func shouldProcessVoiceCommand(_ command: CookVoiceCommand) -> Bool {
+        let now = Date()
+        if let last = lastVoiceCommandExecution,
+           last.command == command,
+           now.timeIntervalSince(last.timestamp) < 1.0 {
+            return false
+        }
+
+        lastVoiceCommandExecution = (command, now)
+        return true
+    }
+
+    private func performVoiceCommand(_ command: CookVoiceCommand) {
+        switch command {
+        case .nextStep:
+            guard currentIndex < steps.count - 1 else {
+                presentToast("已經是最後一步")
+                resetVoiceDictationAfterCommand(resumeDictation: false)
+                return
+            }
+            nextStep()
+            presentToast(command.rawValue)
+            resetVoiceDictationAfterCommand(resumeDictation: false)
+
+        case .previousStep:
+            guard currentIndex > 0 else {
+                presentToast("已經是第一步")
+                resetVoiceDictationAfterCommand(resumeDictation: false)
+                return
+            }
+            prevStep()
+            presentToast(command.rawValue)
+            resetVoiceDictationAfterCommand(resumeDictation: false)
+
+        case .submit:
+            guard let bubble = qaInputBubbleView else {
+                presentToast("目前沒有問題可以送出")
+                resetVoiceDictationAfterCommand(resumeDictation: false)
+                return
+            }
+            bubble.clearValidationError()
+            bubble.onSubmit?(bubble.currentDraftText())
+
+        case .clear:
+            guard let bubble = qaInputBubbleView else {
+                pendingDraftQuestion = ""
+                presentToast("目前沒有內容可以清除")
+                resetVoiceDictationAfterCommand(resumeDictation: false)
+                return
+            }
+
+            bubble.clearValidationError()
+            bubble.onClear?()
+            bubble.setDraftText("")
+            presentToast("已清除")
+            resetVoiceDictationAfterCommand(resumeDictation: true)
+        }
+    }
+
+    private func resetVoiceDictationAfterCommand(resumeDictation: Bool) {
+        qaVoiceService.cancelDictationAndResumeKeywordListening()
+        isVoiceDictationActive = false
+        baselineDictationTranscript = nil
+        lastRawDictation = ""
+
+        if resumeDictation {
+            scheduleNextListeningCycle()
         }
     }
 
