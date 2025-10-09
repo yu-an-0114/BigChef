@@ -9,7 +9,7 @@ import ARKit
 
 // 如果你的專案裡有自定義 ARGestureDelegate / ARSessionAdapter，這裡實作對應的代理方法。
 // 請確保 CookViewController 裡的 nextStep()/prevStep()/goToStep(_:) 不是 private。
-extension CookViewController: ARGestureDelegate, UIGestureRecognizerDelegate {
+extension CookViewController {
 
     // MARK: - Install
     /// 主控制器在 viewDidLoad() 內呼叫
