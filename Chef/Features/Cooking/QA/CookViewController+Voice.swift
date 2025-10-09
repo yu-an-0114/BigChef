@@ -1,5 +1,6 @@
 import Foundation
-/*
+import UIKit
+
 extension CookViewController {
     func setupQAVoiceService() {
         qaVoiceService.onKeywordDetected = { [weak self] in
@@ -177,4 +178,3 @@ extension CookViewController {
         }
     }
 }
-*/
