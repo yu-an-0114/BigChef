@@ -61,7 +61,7 @@ struct RecommendationResultView: View {
         } message: {
             VStack {
                 if let error = arError {
-                    Text(error.localizedDescription ?? "發生未知錯誤")
+                    Text(error.errorDescription ?? "發生未知錯誤")
                     if let recovery = error.recoveryMessage {
                         Text(recovery)
                             .font(.caption)
@@ -254,23 +254,31 @@ struct RecommendationResultView: View {
                 // 檢查 AR 支援（真實設備上才檢查）
                 #if !targetEnvironment(simulator)
                 guard ARWorldTrackingConfiguration.isSupported else {
-                    await showARError(.deviceNotSupported)
+                    await MainActor.run {
+                        showARError(.deviceNotSupported)
+                    }
                     return
                 }
 
                 // 檢查相機權限
                 let hasPermission = await requestCameraPermission()
                 guard hasPermission else {
-                    await showARError(.cameraPermissionDenied)
+                    await MainActor.run {
+                        showARError(.cameraPermissionDenied)
+                    }
                     return
                 }
                 #endif
 
                 print("✅ AR 前置檢查完成，啟動 AR 烹飪模式")
-                await launchARCooking()
+                await MainActor.run {
+                    launchARCooking()
+                }
 
             } catch {
-                await showARError(.unknown(error.localizedDescription))
+                await MainActor.run {
+                    showARError(.unknown(error.localizedDescription))
+                }
             }
         }
     }
@@ -303,7 +311,7 @@ struct RecommendationResultView: View {
         arError = error
         showingARError = true
         isStartingAR = false
-        print("❌ AR 錯誤: \(error.localizedDescription ?? "未知錯誤")")
+        print("❌ AR 錯誤: \(error.errorDescription ?? error.localizedDescription)")
     }
 }
 

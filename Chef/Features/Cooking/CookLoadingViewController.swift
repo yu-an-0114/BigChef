@@ -51,13 +51,9 @@ final class CookLoadingViewController: UIViewController {
         hasStarted = true
 
         Task {
-            do {
-                await preloadAssets(for: steps)
-                if Task.isCancelled { return }
-                onReady?(steps)
-            } catch {
-                onFailed?(error)
-            }
+            await preloadAssets(for: steps)
+            if Task.isCancelled { return }
+            onReady?(steps)
         }
     }
 

@@ -25,9 +25,9 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     let gestureSession = ARSessionAdapter()
 
     // MARK: - Data
-    fileprivate let steps: [RecipeStep]
+    let steps: [RecipeStep]
     private let stepViewModel = StepViewModel()
-    fileprivate var currentIndex = 0 {
+    private(set) var currentIndex = 0 {
         didSet {
             print("🔄 [CookViewController] currentIndex changed: \(oldValue) -> \(currentIndex)")
             updateStepLabel()
