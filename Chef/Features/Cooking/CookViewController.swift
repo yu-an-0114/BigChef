@@ -52,6 +52,7 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     private var qaTapRecognizer: UITapGestureRecognizer?
     var qaBubbleView: CookQASpeechBubbleView?
     var qaInputBubbleView: CookQAInputBubbleView?
+    var isVoiceTriggeredInputBubble = false
     private var qaBubbleDismissTap: UITapGestureRecognizer?
     var pendingDraftQuestion: String = ""
     let qaWakeWord = "阿龍"
@@ -402,13 +403,14 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
         qaModelView.alpha = enabled ? 1.0 : 0.5
     }
 
-    private func dismissQABubble(animated: Bool = true, persistDraft: Bool = true) {
+    func dismissQABubble(animated: Bool = true, persistDraft: Bool = true) {
         let answerBubble = qaBubbleView
         let inputBubble = qaInputBubbleView
         guard answerBubble != nil || inputBubble != nil else { return }
 
         qaBubbleView = nil
         qaInputBubbleView = nil
+        isVoiceTriggeredInputBubble = false
 
         let viewsToDismiss = [answerBubble, inputBubble].compactMap { $0 }
 
@@ -579,6 +581,7 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
 
         view.addSubview(bubble)
         qaInputBubbleView = bubble
+        isVoiceTriggeredInputBubble = voiceTriggered
         shouldStartDictationAfterBubblePresented = voiceTriggered
         if voiceTriggered {
             baselineDictationTranscript = nil

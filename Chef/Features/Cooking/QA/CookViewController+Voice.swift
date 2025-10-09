@@ -167,12 +167,22 @@ extension CookViewController {
 
         switch command {
         case .nextStep, .previousStep:
-            if hasInputBubble && isInputActive {
+            let bubbleDraft = inputBubble?.currentDraftText().trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let pendingDraft = pendingDraftQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+            let hasMeaningfulDraft = !bubbleDraft.isEmpty || !pendingDraft.isEmpty
+            let shouldIgnoreActiveBubble = hasInputBubble && isVoiceTriggeredInputBubble && !hasMeaningfulDraft
+
+            if hasInputBubble && isInputActive && !shouldIgnoreActiveBubble {
                 print("📝 [QAVoiceService] Input bubble active, treating command as dictation text.")
                 return false
             }
 
             guard shouldProcessVoiceCommand(command) else { return true }
+
+            if shouldIgnoreActiveBubble {
+                dismissQABubble(animated: true, persistDraft: false)
+            }
+
             performVoiceCommand(command)
             return true
 
