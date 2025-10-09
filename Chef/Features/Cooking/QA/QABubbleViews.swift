@@ -7,7 +7,7 @@
 
 import UIKit
 
-final class QAInputBubbleView: UIView, UITextViewDelegate {
+final class CookQAInputBubbleView: UIView, UITextViewDelegate {
     var onSubmit: ((String) -> Void)?
     var onClear: (() -> Void)?
 
@@ -253,7 +253,7 @@ final class QAInputBubbleView: UIView, UITextViewDelegate {
     }
 }
 
-final class QASpeechBubbleView: UIView {
+final class CookQASpeechBubbleView: UIView {
     private let containerView = UIView()
     private let textLabel = UILabel()
     private let tailView = SpeechBubbleTailView()

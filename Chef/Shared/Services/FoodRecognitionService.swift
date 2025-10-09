@@ -129,7 +129,6 @@ private extension FoodRecognitionService {
     /// - Returns: 壓縮後的圖片
     func compressImageIfNeeded(_ image: UIImage) -> UIImage {
         let maxDimension: CGFloat = 1024
-        let maxFileSize: Int = 2 * 1024 * 1024 // 2MB
 
         // 檢查尺寸
         if image.size.width > maxDimension || image.size.height > maxDimension {

@@ -25,9 +25,9 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     let gestureSession = ARSessionAdapter()
 
     // MARK: - Data
-    private let steps: [RecipeStep]
+    fileprivate let steps: [RecipeStep]
     private let stepViewModel = StepViewModel()
-    private var currentIndex = 0 {
+    fileprivate var currentIndex = 0 {
         didSet {
             print("🔄 [CookViewController] currentIndex changed: \(oldValue) -> \(currentIndex)")
             updateStepLabel()
@@ -50,8 +50,8 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     private let completeBtn = UIButton(type: .system)
     private let qaModelView = SCNView()
     private var qaTapRecognizer: UITapGestureRecognizer?
-    var qaBubbleView: QASpeechBubbleView?
-    var qaInputBubbleView: QAInputBubbleView?
+    var qaBubbleView: CookQASpeechBubbleView?
+    var qaInputBubbleView: CookQAInputBubbleView?
     private var qaBubbleDismissTap: UITapGestureRecognizer?
     var pendingDraftQuestion: String = ""
     let qaWakeWord = "阿龍"
@@ -547,7 +547,7 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     func showQAInputBubble(voiceTriggered: Bool = false) {
         dismissQABubble(animated: false)
 
-        let bubble = QAInputBubbleView()
+        let bubble = CookQAInputBubbleView()
         bubble.translatesAutoresizingMaskIntoConstraints = false
         bubble.alpha = 0
         bubble.transform = CGAffineTransform(scaleX: 0.75, y: 0.75)
@@ -611,7 +611,7 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     private func presentQAAnswer(_ answer: String) {
         dismissQABubble(animated: false, persistDraft: false)
 
-        let bubble = QASpeechBubbleView()
+        let bubble = CookQASpeechBubbleView()
         bubble.translatesAutoresizingMaskIntoConstraints = false
         bubble.configure(text: answer)
         bubble.alpha = 0

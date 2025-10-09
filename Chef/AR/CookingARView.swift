@@ -193,7 +193,6 @@ struct CookingARView: UIViewRepresentable {
     }
 
     // MARK: - Coordinator
-    @MainActor
     class Coordinator: NSObject, ARSessionDelegate, ARGestureDelegate {
         var useSceneDepth: Bool = false
 

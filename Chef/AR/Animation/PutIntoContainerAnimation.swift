@@ -124,8 +124,8 @@ class PutIntoContainerAnimation: Animation {
         anchor.addChild(entity)
 
         // 設置初始位置（相機前方偏上）
-        let start = SIMD3<Float>(0, 0.2, -0.5) // 相機前方 0.5 公尺，向上 0.2 公尺
-        entity.position = start
+        let startPosition = SIMD3<Float>(0, 0.2, -0.5) // 相機前方 0.5 公尺，向上 0.2 公尺
+        entity.position = startPosition
 
         if let rawEnd = containerPosition {
             var endPos = rawEnd

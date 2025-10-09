@@ -52,7 +52,7 @@ class ObjectDetector {
             for obs in observations {
                 guard let top = obs.labels.first,
                       top.identifier == container.rawValue,
-                      let overlay = self.overlayView
+                      self.overlayView != nil
                 else { continue }
 
                 let box = obs.boundingBox
