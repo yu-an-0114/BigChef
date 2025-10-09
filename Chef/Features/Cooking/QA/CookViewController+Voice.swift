@@ -26,6 +26,16 @@ extension CookViewController {
                     self.baselineDictationTranscript = trimmed
                     self.lastRawDictation = trimmed
                     print("🗣️ [QAVoiceService] Captured baseline transcript: \(trimmed)")
+
+                    if self.handleVoiceCommandIfNeeded(from: trimmed) {
+                        return
+                    }
+
+                    return
+                }
+
+                if self.handleVoiceCommandIfNeeded(from: trimmed) {
+                    self.lastRawDictation = trimmed
                     return
                 }
 
@@ -194,7 +204,29 @@ extension CookViewController {
         }
 
         let normalized = normalizeVoiceCommandText(text)
-        return CookVoiceCommand.allCases.first { $0.rawValue == normalized }
+        guard !normalized.isEmpty else { return nil }
+
+        var bestMatch: (command: CookVoiceCommand, range: Range<String.Index>)?
+
+        for command in CookVoiceCommand.allCases {
+            let normalizedCommand = normalizeVoiceCommandText(command.rawValue)
+            guard !normalizedCommand.isEmpty else { continue }
+
+            var searchRange = normalized.startIndex..<normalized.endIndex
+            while let range = normalized.range(of: normalizedCommand, options: [], range: searchRange) {
+                if let currentBest = bestMatch {
+                    if range.upperBound > currentBest.range.upperBound {
+                        bestMatch = (command, range)
+                    }
+                } else {
+                    bestMatch = (command, range)
+                }
+
+                searchRange = range.upperBound..<normalized.endIndex
+            }
+        }
+
+        return bestMatch?.command
     }
 
     private func normalizeVoiceCommandText(_ text: String) -> String {
