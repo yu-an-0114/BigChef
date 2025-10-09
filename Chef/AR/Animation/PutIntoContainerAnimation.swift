@@ -124,7 +124,7 @@ class PutIntoContainerAnimation: Animation {
         anchor.addChild(entity)
 
         // 設置初始位置（相機前方偏上）
-        var start = SIMD3<Float>(0, 0.2, -0.5) // 相機前方 0.5 公尺，向上 0.2 公尺
+        let start = SIMD3<Float>(0, 0.2, -0.5) // 相機前方 0.5 公尺，向上 0.2 公尺
         entity.position = start
 
         if let rawEnd = containerPosition {
@@ -155,7 +155,9 @@ class PutIntoContainerAnimation: Animation {
                 .post(name: .init("PutIntoContainerAnimationCompleted"),
                       object: self)
         }
-    }    /// 更新 bounding box 時，同步計算框底世界座標
+    }
+
+    /// 更新 bounding box 時，同步計算框底世界座標
     override func updateBoundingBox(rect: CGRect) {
         guard let anchor = anchorEntity else { return }
         // 取得當前錨點世界座標

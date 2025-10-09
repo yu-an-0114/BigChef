@@ -193,6 +193,7 @@ struct CookingARView: UIViewRepresentable {
     }
 
     // MARK: - Coordinator
+    @MainActor
     class Coordinator: NSObject, ARSessionDelegate, ARGestureDelegate {
         var useSceneDepth: Bool = false
 
@@ -418,12 +419,14 @@ struct CookingARView: UIViewRepresentable {
                         forName: Notification.Name("PutIntoContainerAnimationCompleted"),
                         object: nil, queue: .main
                     ) { [weak self] _ in
-                        guard let self = self else { return }
-                        self.isAnimationPlaying = false
-                        if self.isDetectionActive { self.playAnimationLoop() }
-                        if let observer = self.containerCompletionObserver {
-                            NotificationCenter.default.removeObserver(observer)
-                            self.containerCompletionObserver = nil
+                        Task { @MainActor in
+                            guard let self else { return }
+                            self.isAnimationPlaying = false
+                            if self.isDetectionActive { self.playAnimationLoop() }
+                            if let observer = self.containerCompletionObserver {
+                                NotificationCenter.default.removeObserver(observer)
+                                self.containerCompletionObserver = nil
+                            }
                         }
                     }
                     return
@@ -431,19 +434,24 @@ struct CookingARView: UIViewRepresentable {
 
                 playbackSubscription = arView.scene
                     .subscribe(to: AnimationEvents.PlaybackCompleted.self) { [weak self] event in
-                        guard let self = self else { return }
-                        if event.playbackController.entity == model {
-                            self.isAnimationPlaying = false
-                            if self.isDetectionActive { self.playAnimationLoop() }
-                            self.playbackSubscription?.cancel()
-                            self.playbackSubscription = nil
+                        let entity = event.playbackController.entity
+                        Task { @MainActor in
+                            guard let self else { return }
+                            if entity == model {
+                                self.isAnimationPlaying = false
+                                if self.isDetectionActive { self.playAnimationLoop() }
+                                self.playbackSubscription?.cancel()
+                                self.playbackSubscription = nil
+                            }
                         }
                     }
             } else {
                 let work = DispatchWorkItem { [weak self] in
-                    guard let self = self else { return }
-                    self.isAnimationPlaying = false
-                    if self.isDetectionActive { self.playAnimationLoop() }
+                    Task { @MainActor in
+                        guard let self else { return }
+                        self.isAnimationPlaying = false
+                        if self.isDetectionActive { self.playAnimationLoop() }
+                    }
                 }
                 staticRemovalWorkItem = work
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: work)

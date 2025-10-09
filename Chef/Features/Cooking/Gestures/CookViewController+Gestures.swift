@@ -15,7 +15,7 @@ extension CookViewController {
     /// 主控制器在 viewDidLoad() 內呼叫
     func installGestures() {
         // 把 AR 手勢事件回傳給自己
-        gestureSession.delegate = self
+        gestureSession.addGestureDelegate(self)
 
         // MARK: UIKit 補充手勢（左右滑動 + 點擊）
         let swipeLeft = UISwipeGestureRecognizer(target: self, action: #selector(onSwipeLeft))
