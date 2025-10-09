@@ -40,6 +40,7 @@ final class QAKeywordVoiceService: NSObject {
     var onDictationTextChanged: ((String) -> Void)?
     var onDictationFinished: (() -> Void)?
     var onError: ((Error) -> Void)?
+    var keywordTranscriptLogger: ((String) -> Void)?
 
     init(wakeWord: String, locale: Locale = Locale(identifier: "zh-TW")) {
         self.wakeWord = wakeWord
@@ -194,7 +195,7 @@ final class QAKeywordVoiceService: NSObject {
         switch mode {
         case .keywordListening:
             guard !transcript.isEmpty else { return }
-            print("🎧 [QAVoiceService] Keyword transcript: \(transcript)")
+            logKeywordTranscript(transcript)
             let simplifiedTranscript = transcript.replacingOccurrences(of: " ", with: "")
             let simplifiedWake = wakeWord.replacingOccurrences(of: " ", with: "")
             if simplifiedTranscript.localizedCaseInsensitiveContains(simplifiedWake) {
@@ -262,6 +263,14 @@ final class QAKeywordVoiceService: NSObject {
             try session.setActive(false, options: .notifyOthersOnDeactivation)
         } catch {
             onError?(error)
+        }
+    }
+
+    private func logKeywordTranscript(_ transcript: String) {
+        if let logger = keywordTranscriptLogger {
+            logger(transcript)
+        } else {
+            print("🎧 [QAVoiceService] Keyword transcript: \(transcript)")
         }
     }
 }

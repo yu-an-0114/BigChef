@@ -3,6 +3,13 @@ import UIKit
 
 extension CookViewController {
     func setupQAVoiceService() {
+        qaVoiceService.keywordTranscriptLogger = { [weak self] transcript in
+            guard let self else { return }
+            if self.qaInputBubbleView == nil {
+                print("🎧 [QAVoiceService] Keyword transcript: \(transcript)")
+            }
+        }
+
         qaVoiceService.onKeywordDetected = { [weak self] in
             DispatchQueue.main.async {
                 self?.handleWakeWordDetected()
