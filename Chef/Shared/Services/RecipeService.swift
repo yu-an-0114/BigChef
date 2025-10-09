@@ -2,7 +2,7 @@ import Foundation
 
 enum RecipeService {
     private static var baseURL: String {
-        Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String ?? ""
+        return ConfigManager.shared.apiBaseURL
     }
     // MARK: - 依名稱/偏好生成食譜 async 函式
     static func generateRecipeByName(using request: GenerateRecipeByNameRequest) async throws -> SuggestRecipeResponse {

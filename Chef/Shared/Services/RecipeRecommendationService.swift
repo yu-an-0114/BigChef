@@ -153,22 +153,15 @@ class RecipeRecommendationService: RecipeRecommendationServiceProtocol {
     }
 
     private func normalizeAmountAndUnit(amount: String, unit: String) -> (String, String) {
-        let trimmedAmount = amount.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let trimmedAmount = amount.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // 檢查是否為「未知」或「適量」
-        let isUnknownAmount = trimmedAmount == "適量" ||
-                              trimmedAmount == "适量" ||
-                              trimmedAmount == "未知" ||
-                              trimmedAmount == "unknown" ||
-                              trimmedAmount.isEmpty
-
-        if isUnknownAmount {
-            // 返回空字串，讓 AI 根據 serving_size 決定份量
-            return ("", "")
-        } else {
-            // 有具體份量，直接使用
-            return (amount, unit)
+        // 如果沒有填寫份量，使用「適量」作為預設值
+        if trimmedAmount.isEmpty {
+            return ("適量", "")
         }
+
+        // 有填寫份量，直接使用原始值（包含「適量」、「适量」等）
+        return (trimmedAmount, unit)
     }
 
     private func convertToEquipment(from availableEquipment: [AvailableEquipment]) -> [Equipment] {

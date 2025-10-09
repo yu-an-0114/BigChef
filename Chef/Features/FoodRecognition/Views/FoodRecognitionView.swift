@@ -205,6 +205,10 @@ struct FoodRecognitionView: View {
             onRetry: {
                 viewModel.retryRecognition()
             },
+            onAdjustIngredients: {
+                // 導航到食材確認頁面，允許用戶調整食材和器具
+                coordinator.navigateToIngredientConfirmation(with: response)
+            },
             onGenerateRecipe: {
                 // 直接導航到食譜推薦頁面，跳過食材器具確認步驟
                 handleDirectRecipeGeneration(from: response)
@@ -230,11 +234,10 @@ struct FoodRecognitionView: View {
         print("🔧 準備使用器具：\(allEquipment)")
         print("🍽️ 主要食物：\(recognizedFoodName ?? "未知")")
 
-        // 直接導航到食譜推薦頁面，跳過食材確認
-        coordinator.navigateToRecipeGenerationWithFoodName(
-            ingredients: allIngredients,
-            equipment: allEquipment,
-            recognizedFoodName: recognizedFoodName
+        // 導航到食材確認頁面並自動生成食譜
+        coordinator.navigateToIngredientConfirmationAndGenerate(
+            with: response,
+            autoGenerate: true
         )
     }
 

@@ -43,7 +43,7 @@ class IngredientRecognitionService {
     static let shared = IngredientRecognitionService()
 
     private static var baseURL: String {
-        Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String ?? ""
+        return ConfigManager.shared.apiBaseURL
     }
 
     private init() {}

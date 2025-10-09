@@ -29,7 +29,7 @@ class ConfigManager {
 
     private func loadDefaultConfiguration() {
         config = [
-            "API_BASE_URL": "http://localhost:8081",
+            "API_BASE_URL": "http://localhost:8080",
             "API_VERSION": "v1",
             "DEBUG_MODE": true,
             "TIMEOUT_INTERVAL": 30
@@ -39,7 +39,7 @@ class ConfigManager {
     // MARK: - Public API
 
     var apiBaseURL: String {
-        return config["API_BASE_URL"] as? String ?? "http://localhost:8081"
+        return config["API_BASE_URL"] as? String ?? "http://localhost:8080"
     }
 
     var apiVersion: String {

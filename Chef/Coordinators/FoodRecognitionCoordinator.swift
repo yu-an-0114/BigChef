@@ -20,6 +20,10 @@ final class FoodRecognitionCoordinator: Coordinator, ObservableObject {
     private var viewModel: FoodRecognitionViewModel?
     private var hostingController: UIHostingController<AnyView>?
 
+    // MARK: - Ingredient Confirmation State
+    private var confirmationViewModel: IngredientConfirmationViewModel?
+    private var confirmationHostingController: UIViewController?
+
     // MARK: - State Management
     private var currentRecipeResult: RecipeRecommendationResponse?  // 儲存當前食譜
     private var currentCookCoordinator: CookCoordinator?  // 儲存當前 AR Coordinator
@@ -155,6 +159,19 @@ final class FoodRecognitionCoordinator: Coordinator, ObservableObject {
         print("⚠️ AR 動畫註冊將在首次載入時自動完成（食譜ID: \(recipeID)）")
     }
 
+    /// 從食物辨識結果直接導航到食材確認頁面並自動生成食譜
+    func navigateToIngredientConfirmationAndGenerate(with result: FoodRecognitionResponse, autoGenerate: Bool = false) {
+        // 先導航到確認頁面
+        navigateToIngredientConfirmation(with: result)
+
+        // 如果需要自動生成，觸發生成
+        if autoGenerate, let viewModel = confirmationViewModel {
+            Task {
+                await viewModel.generateRecipe()
+            }
+        }
+    }
+
     /// 從食物辨識結果直接導航到食材確認頁面（簡化流程）
     func navigateToIngredientConfirmation(with result: FoodRecognitionResponse) {
         print("🔍 FoodRecognitionCoordinator: 直接導航到食材確認頁面，跳過中間步驟")
@@ -162,27 +179,47 @@ final class FoodRecognitionCoordinator: Coordinator, ObservableObject {
         print("   辨識出的食材：\(result.recognizedFoods.flatMap { $0.possibleIngredients }.count) 個")
         print("   辨識出的器具：\(result.recognizedFoods.flatMap { $0.possibleEquipment }.count) 個")
 
+        // 檢查是否已經有 confirmationHostingController，如果有就重用
+        if let existingController = confirmationHostingController,
+           navigationController.viewControllers.contains(existingController) {
+            print("♻️ 重用現有的 IngredientConfirmationView")
+            // 已經在導航堆疊中，不需要重新 push
+            return
+        }
+
+        // 創建或重用 ViewModel
+        let viewModel: IngredientConfirmationViewModel
+        if let existingViewModel = confirmationViewModel {
+            print("♻️ 重用現有的 IngredientConfirmationViewModel")
+            viewModel = existingViewModel
+            // 重新配置 ViewModel
+            viewModel.configure(with: result)
+        } else {
+            print("🆕 創建新的 IngredientConfirmationViewModel")
+            viewModel = IngredientConfirmationViewModel()
+            viewModel.configure(with: result)
+            confirmationViewModel = viewModel
+        }
+
         let confirmationView = IngredientConfirmationView(
             recognitionResult: result,
             onConfirm: { [weak self] selectedIngredients, selectedEquipment in
-                // 獲取辨識出的主要食物名稱，用於生成特定食譜
-                let recognizedFoodName = result.recognizedFoods.first?.name
-                self?.generateAndShowRecipe(
-                    ingredients: selectedIngredients,
-                    equipment: selectedEquipment,
-                    recognizedFoodName: recognizedFoodName
-                )
+                // 此回調不再使用，因為 ViewModel 內部處理生成
+                print("⚠️ FoodRecognitionCoordinator: onConfirm 回調已棄用")
             },
             onCancel: { [weak self] in
                 self?.goBack()
             }
         )
         .environmentObject(self)
+        .environmentObject(viewModel)  // 注入 ViewModel
 
         let hostingController = UIHostingController(rootView: confirmationView)
         hostingController.title = "確認食材器具"
         hostingController.navigationItem.largeTitleDisplayMode = .never
         hostingController.hidesBottomBarWhenPushed = false
+
+        confirmationHostingController = hostingController
 
         navigationController.pushViewController(hostingController, animated: true)
     }
@@ -321,22 +358,15 @@ final class FoodRecognitionCoordinator: Coordinator, ObservableObject {
     }
 
     /// 基於辨識食物名稱直接生成食譜（跳過確認步驟）
+    /// 注意：此方法已廢棄，現在使用 navigateToIngredientConfirmationAndGenerate
+    @available(*, deprecated, message: "Use navigateToIngredientConfirmationAndGenerate instead")
     func navigateToRecipeGenerationWithFoodName(
         ingredients: [String],
         equipment: [String],
         recognizedFoodName: String? = nil
     ) {
-        print("🧑‍🍳 FoodRecognitionCoordinator: 基於辨識食物直接生成食譜（跳過確認）")
-        print("  辨識食物：\(recognizedFoodName ?? "未知")")
-        print("  食材：\(ingredients)")
-        print("  器具：\(equipment)")
-
-        // 直接生成食譜，跳過確認步驟
-        generateAndShowRecipe(
-            ingredients: ingredients,
-            equipment: equipment,
-            recognizedFoodName: recognizedFoodName
-        )
+        print("⚠️ FoodRecognitionCoordinator: navigateToRecipeGenerationWithFoodName 已廢棄")
+        print("  請使用 navigateToIngredientConfirmationAndGenerate 代替")
     }
 
     /// 顯示錯誤提示

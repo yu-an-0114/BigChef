@@ -9,6 +9,14 @@ import Foundation
 import SwiftUI
 import Combine
 
+// MARK: - Recipe Generation State
+enum RecipeGenerationState {
+    case configuring        // 配置食材器具
+    case loading           // 生成食譜中
+    case success(RecipeRecommendationResponse)  // 生成成功
+    case error(Error)      // 生成失敗
+}
+
 @MainActor
 final class IngredientConfirmationViewModel: ObservableObject {
 
@@ -22,9 +30,12 @@ final class IngredientConfirmationViewModel: ObservableObject {
     @Published var newIngredientName: String = ""
     @Published var newEquipmentName: String = ""
     @Published var isFormValid: Bool = false
+    @Published var generationState: RecipeGenerationState = .configuring
 
     // MARK: - Private Properties
     private var cancellables = Set<AnyCancellable>()
+    private var currentTask: Task<Void, Never>?
+    private var recognizedFoodName: String?  // 儲存辨識出的食物名稱
 
     // MARK: - Computed Properties
     var totalSelectedIngredients: [String] {
@@ -55,6 +66,9 @@ final class IngredientConfirmationViewModel: ObservableObject {
     func configure(with recognitionResult: FoodRecognitionResponse) {
         print("🔄 IngredientConfirmationViewModel: 配置辨識結果")
 
+        // 儲存辨識出的食物名稱
+        recognizedFoodName = recognitionResult.recognizedFoods.first?.name
+
         // 從所有辨識出的食物中提取食材和器具
         recognizedIngredients = recognitionResult.recognizedFoods.flatMap { $0.possibleIngredients }
         recognizedEquipment = recognitionResult.recognizedFoods.flatMap { $0.possibleEquipment }
@@ -63,6 +77,7 @@ final class IngredientConfirmationViewModel: ObservableObject {
         selectedIngredients = Set(recognizedIngredients.map { $0.name })
         selectedEquipment = Set(recognizedEquipment.map { $0.name })
 
+        print("  辨識食物: \(recognizedFoodName ?? "未知")")
         print("  辨識食材: \(recognizedIngredients.map { $0.name })")
         print("  辨識器具: \(recognizedEquipment.map { $0.name })")
 
@@ -179,6 +194,88 @@ final class IngredientConfirmationViewModel: ObservableObject {
     func deselectAllEquipment() {
         selectedEquipment.removeAll()
         print("❌ 取消選擇所有器具")
+    }
+
+    // MARK: - Recipe Generation Methods
+
+    /// 生成食譜
+    func generateRecipe() async {
+        print("🧑‍🍳 IngredientConfirmationViewModel: 開始生成食譜")
+
+        generationState = .loading
+
+        currentTask = Task {
+            do {
+                let service = RecipeRecommendationService()
+
+                let availableIngredients = totalSelectedIngredients.map { ingredient in
+                    AvailableIngredient(
+                        name: ingredient,
+                        type: "食材",
+                        amount: "適量",
+                        unit: "",
+                        preparation: ""
+                    )
+                }
+
+                let availableEquipment = totalSelectedEquipment.map { equip in
+                    AvailableEquipment(
+                        name: equip,
+                        type: "器具",
+                        size: "中等",
+                        material: "",
+                        powerSource: "無"
+                    )
+                }
+
+                let preference = RecommendationPreference(
+                    cookingMethod: recognizedFoodName.map { "製作 \($0)" },
+                    dietaryRestrictions: [],
+                    servingSize: "2人份",
+                    recipeDescription: nil
+                )
+
+                print("  食材: \(totalSelectedIngredients)")
+                print("  器具: \(totalSelectedEquipment)")
+                print("  偏好: 製作 \(recognizedFoodName ?? "料理")")
+
+                let result = try await service.recommendRecipe(
+                    ingredients: availableIngredients,
+                    equipment: availableEquipment,
+                    preference: preference
+                )
+
+                await MainActor.run {
+                    self.generationState = .success(result)
+                    print("✅ 食譜生成成功: \(result.dishName)")
+                }
+
+            } catch {
+                await MainActor.run {
+                    self.generationState = .error(error)
+                    print("❌ 食譜生成失敗: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    /// 取消當前生成任務
+    func cancelGeneration() {
+        currentTask?.cancel()
+        currentTask = nil
+        generationState = .configuring
+        print("🚫 取消食譜生成")
+    }
+
+    /// 返回配置狀態
+    func backToConfiguration() {
+        generationState = .configuring
+        print("🔙 返回配置頁面")
+    }
+
+    /// 重試生成
+    func retryGeneration() async {
+        await generateRecipe()
     }
 
     // MARK: - Private Methods

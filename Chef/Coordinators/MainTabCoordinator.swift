@@ -20,78 +20,103 @@ final class MainTabCoordinator: Coordinator, ObservableObject {
     weak var parentCoordinator: AppCoordinator?
     let authViewModel: AuthViewModel
 
+    // 每個 tab 的獨立 NavigationController
+    var homeNavController: UINavigationController!
+    var foodRecognitionNavController: UINavigationController!
+    var recipeRecommendationNavController: UINavigationController!
+    var favoritesNavController: UINavigationController!
+    var settingsNavController: UINavigationController!
+
+    var tabBarController: UITabBarController!
+
     init(navigationController: UINavigationController, parentCoordinator: AppCoordinator? = nil, authViewModel: AuthViewModel) {
         self.navigationController = navigationController
         self.parentCoordinator = parentCoordinator
         self.authViewModel = authViewModel
     }
-    
+
     // MARK: - Public
     func start() {
-        
-        let tabView = TabView {
-            // Home Tab
-            NavigationStack {
-                HomeTabView(coordinator: self)
-            }
-            .tabItem {
-                Label("首頁", systemImage: "house.fill")
-            }
+        // 創建獨立的 NavigationController 給每個 tab
+        homeNavController = UINavigationController()
+        foodRecognitionNavController = UINavigationController()
+        recipeRecommendationNavController = UINavigationController()
+        favoritesNavController = UINavigationController()
+        settingsNavController = UINavigationController()
 
-            // Food Recognition Tab
-            NavigationStack {
-                FoodRecognitionTabView(coordinator: self)
-            }
-            .tabItem {
-                Label("辨識", systemImage: "camera.viewfinder")
-            }
+        // 創建每個 tab 的 root view
+        let homeView = HomeTabView(coordinator: self)
+        let homeVC = UIHostingController(rootView: homeView)
+        homeVC.tabBarItem = UITabBarItem(title: "首頁", image: UIImage(systemName: "house.fill"), tag: 0)
+        homeNavController.setViewControllers([homeVC], animated: false)
 
-            // Recipe Recommendation Tab
-            NavigationStack {
-                RecipeRecommendationTabView(coordinator: self)
-            }
-            .tabItem {
-                Label("推薦", systemImage: "lightbulb.fill")
-            }
+        let foodRecognitionView = FoodRecognitionTabView(coordinator: self)
+        let foodRecognitionVC = UIHostingController(rootView: foodRecognitionView)
+        foodRecognitionVC.tabBarItem = UITabBarItem(title: "辨識", image: UIImage(systemName: "camera.viewfinder"), tag: 1)
+        foodRecognitionNavController.setViewControllers([foodRecognitionVC], animated: false)
 
-            // Favorites Tab
-            NavigationStack {
-                FavoritesTabView(coordinator: self)
-            }
-            .tabItem {
-                Label("收藏", systemImage: "heart.fill")
-            }
+        let recipeRecommendationView = RecipeRecommendationTabView(coordinator: self)
+        let recipeRecommendationVC = UIHostingController(rootView: recipeRecommendationView)
+        recipeRecommendationVC.tabBarItem = UITabBarItem(title: "推薦", image: UIImage(systemName: "lightbulb.fill"), tag: 2)
+        recipeRecommendationNavController.setViewControllers([recipeRecommendationVC], animated: false)
 
-            // Settings Tab
-            NavigationStack {
-                SettingsView()
-                    .environmentObject(authViewModel)
-            }
-            .tabItem {
-                Label("設定", systemImage: "gear")
-            }
+        let favoritesView = FavoritesTabView(coordinator: self)
+        let favoritesVC = UIHostingController(rootView: favoritesView)
+        favoritesVC.tabBarItem = UITabBarItem(title: "收藏", image: UIImage(systemName: "heart.fill"), tag: 3)
+        favoritesNavController.setViewControllers([favoritesVC], animated: false)
+
+        let settingsView = SettingsView().environmentObject(authViewModel)
+        let settingsVC = UIHostingController(rootView: settingsView)
+        settingsVC.tabBarItem = UITabBarItem(title: "設定", image: UIImage(systemName: "gear"), tag: 4)
+        settingsNavController.setViewControllers([settingsVC], animated: false)
+
+        // 創建 TabBarController
+        tabBarController = UITabBarController()
+        tabBarController.viewControllers = [
+            homeNavController,
+            foodRecognitionNavController,
+            recipeRecommendationNavController,
+            favoritesNavController,
+            settingsNavController
+        ]
+
+        // 設置為主 navigationController 的根視圖
+        navigationController.setViewControllers([tabBarController], animated: false)
+        navigationController.setNavigationBarHidden(true, animated: false)
+    }
+
+    // 取得當前 tab 的 NavigationController
+    private func currentTabNavigationController() -> UINavigationController? {
+        guard let selectedIndex = tabBarController?.selectedIndex else { return nil }
+        switch selectedIndex {
+        case 0: return homeNavController
+        case 1: return foodRecognitionNavController
+        case 2: return recipeRecommendationNavController
+        case 3: return favoritesNavController
+        case 4: return settingsNavController
+        default: return nil
         }
-        
-        let hostingController = UIHostingController(rootView: tabView)
-        navigationController.setViewControllers([hostingController], animated: false)
     }
     
     // MARK: - Navigation Methods
-    
+
     func showRecipeDetail(_ recipe: SuggestRecipeResponse) {
-        let coordinator = RecipeCoordinator(navigationController: navigationController)
+        guard let navController = currentTabNavigationController() else { return }
+        let coordinator = RecipeCoordinator(navigationController: navController)
         addChildCoordinator(coordinator)
         coordinator.showRecipeDetail(recipe)
     }
 
     func showRecipeDetail(_ recipe: Recipe) {
-        let coordinator = RecipeCoordinator(navigationController: navigationController)
+        guard let navController = currentTabNavigationController() else { return }
+        let coordinator = RecipeCoordinator(navigationController: navController)
         addChildCoordinator(coordinator)
         coordinator.showRecipeDetail(recipe)
     }
 
     func showCamera() {
-        let coordinator = CameraCoordinator(navigationController: navigationController)
+        guard let navController = currentTabNavigationController() else { return }
+        let coordinator = CameraCoordinator(navigationController: navController)
         addChildCoordinator(coordinator)
         coordinator.start()
     }
@@ -119,7 +144,7 @@ private struct HomeTabView: View {
     @ObservedObject var coordinator: MainTabCoordinator
     @State private var homeCoordinator: HomeCoordinator?
     @State private var viewModel: HomeViewModel?
-    
+
     var body: some View {
         Group {
             if let viewModel = viewModel {
@@ -127,15 +152,15 @@ private struct HomeTabView: View {
             } else {
                 ProgressView()
                     .onAppear {
-                        // 先創建 HomeCoordinator
+                        // 先創建 HomeCoordinator，使用 home tab 的 navigationController
                         let newHomeCoordinator = HomeCoordinator(
-                            navigationController: coordinator.navigationController,
+                            navigationController: coordinator.homeNavController,
                             parentCoordinator: coordinator,
                             authViewModel: coordinator.authViewModel
                         )
                         coordinator.addChildCoordinator(newHomeCoordinator)
                         self.homeCoordinator = newHomeCoordinator
-                        
+
                         // 然後創建 ViewModel 並設置回調
                         let newViewModel = HomeViewModel(authViewModel: coordinator.authViewModel)
                         newViewModel.onSelectDish = { [weak newHomeCoordinator] dish in
@@ -171,7 +196,7 @@ private struct FoodRecognitionTabView: View {
                 ProgressView()
                     .onAppear {
                         let newFoodRecognitionCoordinator = FoodRecognitionCoordinator(
-                            navigationController: coordinator.navigationController,
+                            navigationController: coordinator.foodRecognitionNavController,
                             parentCoordinator: coordinator
                         )
                         coordinator.addChildCoordinator(newFoodRecognitionCoordinator)
@@ -198,7 +223,7 @@ private struct RecipeRecommendationTabView: View {
                 ProgressView()
                     .onAppear {
                         let newRecipeRecommendationCoordinator = RecipeRecommendationCoordinator(
-                            navigationController: coordinator.navigationController,
+                            navigationController: coordinator.recipeRecommendationNavController,
                             parentCoordinator: coordinator
                         )
                         coordinator.addChildCoordinator(newRecipeRecommendationCoordinator)
