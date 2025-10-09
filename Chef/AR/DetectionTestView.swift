@@ -22,7 +22,14 @@ class DetectionViewController: UIViewController, ARSessionDelegate {
     // 用 Vision 建立一個簡單的偵測請求（以預設模型為例）
     lazy var visionRequest: VNCoreMLRequest = {
         // 假設你已經把 .mlmodel 加入專案並生成了 MyObjectDetector().model
-        let model = try! VNCoreMLModel(for: CookDetect().model)
+        let model: VNCoreMLModel
+        do {
+            let configuration = MLModelConfiguration()
+            let coreMLModel = try CookDetect(configuration: configuration).model
+            model = try VNCoreMLModel(for: coreMLModel)
+        } catch {
+            fatalError("❌ 無法載入 CookDetect 模型：\(error)")
+        }
         let req = VNCoreMLRequest(model: model) { [weak self] req, _ in
             self?.processDetections(from: req)
         }

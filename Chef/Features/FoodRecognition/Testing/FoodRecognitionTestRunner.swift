@@ -139,8 +139,16 @@ final class FoodRecognitionTestRunner: ObservableObject {
             )
         }
 
-        testResults.append(result)
-        print("\(result.emoji) \(phase.rawValue) 完成，得分: \(String(format: "%.1f", result.score * 100))%")
+        let duration = CFAbsoluteTimeGetCurrent() - startTime
+        let timedResult = TestResult(
+            phase: result.phase,
+            score: result.score,
+            details: result.details,
+            duration: duration
+        )
+
+        testResults.append(timedResult)
+        print("\(timedResult.emoji) \(phase.rawValue) 完成，得分: \(String(format: "%.1f", timedResult.score * 100))%")
     }
 
     // MARK: - Test Phase Implementations
@@ -373,16 +381,11 @@ final class FoodRecognitionTestRunner: ObservableObject {
     // MARK: - Individual Test Methods
 
     private func testViewModelInitialization() async -> Bool {
-        do {
-            let viewModel = FoodRecognitionViewModel()
-            return viewModel.recognitionStatus == .idle &&
-                   viewModel.selectedImage == nil &&
-                   viewModel.recognitionResult == nil &&
-                   viewModel.error == nil
-        } catch {
-            print("ViewModel 初始化測試失敗: \(error)")
-            return false
-        }
+        let viewModel = FoodRecognitionViewModel()
+        return viewModel.recognitionStatus == .idle &&
+               viewModel.selectedImage == nil &&
+               viewModel.recognitionResult == nil &&
+               viewModel.error == nil
     }
 
     private func testImageSelection() async -> Bool {
@@ -440,6 +443,7 @@ final class FoodRecognitionTestRunner: ObservableObject {
 
         let viewModel = FoodRecognitionViewModel()
         let optimizedImage = viewModel.compressImageForMemoryOptimization(testImage)
+        _ = optimizedImage
 
         let duration = CFAbsoluteTimeGetCurrent() - startTime
 

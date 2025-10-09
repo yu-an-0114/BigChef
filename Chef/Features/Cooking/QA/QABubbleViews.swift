@@ -83,7 +83,15 @@ final class CookQAInputBubbleView: UIView, UITextViewDelegate {
         clearButton.layer.cornerRadius = 12
         clearButton.layer.borderWidth = 1
         clearButton.layer.borderColor = UIColor.systemRed.cgColor
-        clearButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 18, bottom: 10, right: 18)
+        if #available(iOS 15.0, *) {
+            var configuration = UIButton.Configuration.plain()
+            configuration.title = "清除"
+            configuration.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 18, bottom: 10, trailing: 18)
+            configuration.baseForegroundColor = UIColor.systemRed
+            clearButton.configuration = configuration
+        } else {
+            clearButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 18, bottom: 10, right: 18)
+        }
         clearButton.addTarget(self, action: #selector(handleClearTapped), for: .touchUpInside)
         clearButton.isEnabled = false
         clearButton.alpha = 0.5
@@ -94,7 +102,16 @@ final class CookQAInputBubbleView: UIView, UITextViewDelegate {
         sendButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
         sendButton.backgroundColor = UIColor.systemBlue
         sendButton.layer.cornerRadius = 12
-        sendButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 22, bottom: 10, right: 22)
+        if #available(iOS 15.0, *) {
+            var configuration = UIButton.Configuration.filled()
+            configuration.title = "送出"
+            configuration.baseBackgroundColor = UIColor.systemBlue
+            configuration.baseForegroundColor = .white
+            configuration.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 22, bottom: 10, trailing: 22)
+            sendButton.configuration = configuration
+        } else {
+            sendButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 22, bottom: 10, right: 22)
+        }
         sendButton.addTarget(self, action: #selector(handleSendTapped), for: .touchUpInside)
         sendButton.isEnabled = false
         sendButton.alpha = 0.5
