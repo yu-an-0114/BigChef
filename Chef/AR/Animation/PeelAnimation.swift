@@ -37,7 +37,8 @@ class PeelAnimation: Animation {
     override func applyAnimation(to anchor: AnchorEntity, on arView: ARView) {
         // 建立模型
         let model = peelModel.clone(recursive: true)
-        model.scale = SIMD3<Float>(repeating: scale)
+        let adjustedScale = scale * 0.8
+        model.scale = SIMD3<Float>(repeating: adjustedScale)
         anchor.addChild(model)
 
         if let ingredient = ingredient {
