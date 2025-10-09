@@ -11,6 +11,13 @@ import SwiftUI
 import AVFoundation
 import Vision
 import SceneKit
+
+enum CookVoiceCommand: String, CaseIterable {
+    case nextStep = "下一步"
+    case previousStep = "上一步"
+    case submit = "送出"
+    case clear = "清除"
+}
 /// 「開始烹飪」AR 流程 —— 加入手勢辨識
 final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRecognizerDelegate {
 
@@ -53,6 +60,7 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     var shouldStartDictationAfterBubblePresented = false
     var baselineDictationTranscript: String?
     var lastRawDictation: String = ""
+    var lastVoiceCommandExecution: (command: CookVoiceCommand, timestamp: Date)?
 
     // 手勢狀態 UI
     private let gestureStatusLabel = UILabel()
