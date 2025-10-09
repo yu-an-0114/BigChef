@@ -56,7 +56,10 @@ class CountdownAnimation: Animation {
             usdzEntityClone.scale = SIMD3(repeating: scale)
             anchor.addChild(usdzEntityClone)
             if let animationResource = usdzEntityClone.availableAnimations.first {
-                usdzEntityClone.playAnimation(animationResource, transitionDuration: 0.0, startsPaused: false)
+                let resource = isRepeat
+                    ? animationResource.repeat(duration: .infinity)
+                    : animationResource
+                usdzEntityClone.playAnimation(resource, transitionDuration: 0.0, startsPaused: false)
             }
         }
     }

@@ -40,9 +40,10 @@ class StirAnimation: Animation {
         }
         anchor.addChild(instance)
         if let res = instance.availableAnimations.first {
-            instance.playAnimation(res,
-                                     transitionDuration: 0.2,
-                                     startsPaused: false)
+            let resource = isRepeat ? res.repeat(duration: .infinity) : res
+            instance.playAnimation(resource,
+                                   transitionDuration: 0.2,
+                                   startsPaused: false)
         }
     }
 
