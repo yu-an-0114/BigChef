@@ -148,21 +148,44 @@ extension CookViewController {
 
     private func handleVoiceCommandIfNeeded(from text: String) -> Bool {
         guard let command = detectVoiceCommand(in: text) else { return false }
-        let hasInputBubble = qaInputBubbleView != nil
 
-        if hasInputBubble {
-            switch command {
-            case .nextStep, .previousStep:
-                qaInputBubbleView?.endEditing(true)
-            case .clear, .submit:
-                break
+        print("🎯 [QAVoiceService] Detected voice command: \(command.rawValue) (input: \(text))")
+
+        let inputBubble = qaInputBubbleView
+        let hasInputBubble = inputBubble != nil
+        let isInputActive = inputBubble?.isInputActive ?? false
+
+        switch command {
+        case .nextStep, .previousStep:
+            if hasInputBubble && isInputActive {
+                print("📝 [QAVoiceService] Input bubble active, treating command as dictation text.")
+                return false
             }
+
+            guard shouldProcessVoiceCommand(command) else { return true }
+            performVoiceCommand(command)
+            return true
+
+        case .clear:
+            guard hasInputBubble else {
+                print("ℹ️ [QAVoiceService] Ignoring '清除' command because input bubble is not visible.")
+                return true
+            }
+
+            guard shouldProcessVoiceCommand(command) else { return true }
+            performVoiceCommand(command)
+            return true
+
+        case .submit:
+            guard hasInputBubble else {
+                print("ℹ️ [QAVoiceService] Ignoring '送出' command because input bubble is not visible.")
+                return true
+            }
+
+            guard shouldProcessVoiceCommand(command) else { return true }
+            performVoiceCommand(command)
+            return true
         }
-
-        guard shouldProcessVoiceCommand(command) else { return true }
-
-        performVoiceCommand(command)
-        return true
     }
 
     private func detectVoiceCommand(in text: String) -> CookVoiceCommand? {
@@ -193,6 +216,8 @@ extension CookViewController {
     }
 
     private func performVoiceCommand(_ command: CookVoiceCommand) {
+        print("🚦 [QAVoiceService] Executing voice command: \(command.rawValue)")
+
         switch command {
         case .nextStep:
             guard qaHasNextStep() else {
@@ -222,6 +247,8 @@ extension CookViewController {
             }
             bubble.clearValidationError()
             bubble.onSubmit?(bubble.currentDraftText())
+            bubble.setDraftText("")
+            pendingDraftQuestion = ""
 
         case .clear:
             guard let bubble = qaInputBubbleView else {

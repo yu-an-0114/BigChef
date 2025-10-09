@@ -189,6 +189,10 @@ final class CookQAInputBubbleView: UIView, UITextViewDelegate {
         textView.resignFirstResponder()
     }
 
+    var isInputActive: Bool {
+        textView.isFirstResponder
+    }
+
     func setDraftText(_ text: String) {
         textView.text = text
         placeholderLabel.isHidden = !text.isEmpty
