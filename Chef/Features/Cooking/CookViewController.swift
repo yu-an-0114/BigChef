@@ -62,6 +62,12 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     var lastRawDictation: String = ""
     var lastVoiceCommandExecution: (command: CookVoiceCommand, timestamp: Date)?
 
+    // MARK: - Voice Control Helpers
+    var qaCurrentStepIndex: Int { currentIndex }
+    var qaStepsCount: Int { steps.count }
+    func qaHasNextStep() -> Bool { currentIndex < steps.count - 1 }
+    func qaHasPreviousStep() -> Bool { currentIndex > 0 }
+
     // 手勢狀態 UI
     private let gestureStatusLabel = UILabel()
     private let hoverProgressView  = UIProgressView()

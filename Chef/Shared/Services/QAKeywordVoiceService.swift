@@ -128,7 +128,7 @@ final class QAKeywordVoiceService: NSObject {
 
     private func requestRecordPermission(completion: @escaping (Bool) -> Void) {
         if #available(iOS 17.0, *) {
-            AVAudioApplication.shared.requestRecordPermission { granted in
+            AVAudioApplication.requestRecordPermission { granted in
                 DispatchQueue.main.async {
                     completion(granted)
                 }

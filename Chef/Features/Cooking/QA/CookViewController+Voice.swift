@@ -184,7 +184,7 @@ extension CookViewController {
     private func performVoiceCommand(_ command: CookVoiceCommand) {
         switch command {
         case .nextStep:
-            guard currentIndex < steps.count - 1 else {
+            guard qaHasNextStep() else {
                 presentToast("已經是最後一步")
                 resetVoiceDictationAfterCommand(resumeDictation: false)
                 return
@@ -194,7 +194,7 @@ extension CookViewController {
             resetVoiceDictationAfterCommand(resumeDictation: false)
 
         case .previousStep:
-            guard currentIndex > 0 else {
+            guard qaHasPreviousStep() else {
                 presentToast("已經是第一步")
                 resetVoiceDictationAfterCommand(resumeDictation: false)
                 return
