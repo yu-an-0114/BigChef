@@ -360,3 +360,13 @@ private final class SpeechBubbleTailView: UIView {
     }
 }
 
+extension UIView {
+    func shake() {
+        let animation = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
+        animation.duration = 0.3
+        animation.values = [-6, 6, -4, 4, -2, 2, 0]
+        layer.add(animation, forKey: "shake")
+    }
+}
+
