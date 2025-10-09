@@ -150,15 +150,12 @@ extension CookViewController {
         guard let command = detectVoiceCommand(in: text) else { return false }
         let hasInputBubble = qaInputBubbleView != nil
 
-        switch command {
-        case .clear, .submit:
-            guard hasInputBubble else {
-                return true
-            }
-
-        case .nextStep, .previousStep:
-            if hasInputBubble {
-                return false
+        if hasInputBubble {
+            switch command {
+            case .nextStep, .previousStep:
+                qaInputBubbleView?.endEditing(true)
+            case .clear, .submit:
+                break
             }
         }
 
