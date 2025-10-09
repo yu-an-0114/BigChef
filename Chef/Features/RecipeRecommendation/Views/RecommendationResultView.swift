@@ -250,35 +250,28 @@ struct RecommendationResultView: View {
         isStartingAR = true
 
         Task {
-            do {
-                // 檢查 AR 支援（真實設備上才檢查）
-                #if !targetEnvironment(simulator)
-                guard ARWorldTrackingConfiguration.isSupported else {
-                    await MainActor.run {
-                        showARError(.deviceNotSupported)
-                    }
-                    return
-                }
-
-                // 檢查相機權限
-                let hasPermission = await requestCameraPermission()
-                guard hasPermission else {
-                    await MainActor.run {
-                        showARError(.cameraPermissionDenied)
-                    }
-                    return
-                }
-                #endif
-
-                print("✅ AR 前置檢查完成，啟動 AR 烹飪模式")
+            // 檢查 AR 支援（真實設備上才檢查）
+            #if !targetEnvironment(simulator)
+            guard ARWorldTrackingConfiguration.isSupported else {
                 await MainActor.run {
-                    launchARCooking()
+                    showARError(.deviceNotSupported)
                 }
+                return
+            }
 
-            } catch {
+            // 檢查相機權限
+            let hasPermission = await requestCameraPermission()
+            guard hasPermission else {
                 await MainActor.run {
-                    showARError(.unknown(error.localizedDescription))
+                    showARError(.cameraPermissionDenied)
                 }
+                return
+            }
+            #endif
+
+            print("✅ AR 前置檢查完成，啟動 AR 烹飪模式")
+            await MainActor.run {
+                launchARCooking()
             }
         }
     }

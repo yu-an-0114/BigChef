@@ -489,6 +489,8 @@ struct CookingARView: UIViewRepresentable {
     }
 }
 
+extension CookingARView.Coordinator: @unchecked Sendable {}
+
 // 需要容器偵測的類型（沿用你的定義）
 extension AnimationType {
     var requiresContainerDetection: Bool {

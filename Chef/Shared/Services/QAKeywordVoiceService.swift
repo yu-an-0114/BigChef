@@ -7,6 +7,7 @@
 
 import Foundation
 import AVFoundation
+import AVFAudio
 import Speech
 
 /// Manages wake word detection and dictation for the cooking QA flow.
@@ -125,8 +126,18 @@ final class QAKeywordVoiceService: NSObject {
     }
 
     private func requestRecordPermission(completion: @escaping (Bool) -> Void) {
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            completion(granted)
+        if #available(iOS 17.0, *) {
+            AVAudioApplication.shared.requestRecordPermission { granted in
+                DispatchQueue.main.async {
+                    completion(granted)
+                }
+            }
+        } else {
+            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                DispatchQueue.main.async {
+                    completion(granted)
+                }
+            }
         }
     }
 
@@ -247,7 +258,11 @@ final class QAKeywordVoiceService: NSObject {
     private func configureAudioSession() -> Bool {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .allowBluetooth])
+            try session.setCategory(
+                .playAndRecord,
+                mode: .default,
+                options: [.duckOthers, .allowBluetoothHFP]
+            )
             try session.setActive(true, options: .notifyOthersOnDeactivation)
             return true
         } catch {
