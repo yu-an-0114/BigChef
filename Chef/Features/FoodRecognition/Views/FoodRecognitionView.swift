@@ -148,19 +148,13 @@ struct FoodRecognitionView: View {
 
     private var recognizingStateView: some View {
         VStack(spacing: 32) {
-            // Loading Animation with Progress
+            // Loading Animation
             VStack(spacing: 24) {
-                if viewModel.shouldShowProgress {
-                    ProgressView(value: viewModel.recognitionProgress)
-                        .progressViewStyle(LinearProgressViewStyle(tint: .brandOrange))
-                        .scaleEffect(1.2)
-                } else {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .progressViewStyle(CircularProgressViewStyle(tint: .brandOrange))
-                }
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .progressViewStyle(CircularProgressViewStyle(tint: .brandOrange))
 
-                Text(viewModel.progressDescription)
+                Text("辨識中")
                     .font(.title3)
                     .fontWeight(.medium)
 
@@ -174,14 +168,6 @@ struct FoodRecognitionView: View {
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
-                }
-
-                // 顯示進度百分比
-                if viewModel.shouldShowProgress {
-                    Text("\(Int(viewModel.recognitionProgress * 100))%")
-                        .font(.caption)
-                        .foregroundColor(.brandOrange)
-                        .fontWeight(.semibold)
                 }
             }
 

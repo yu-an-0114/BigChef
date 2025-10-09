@@ -447,8 +447,7 @@ extension FoodRecognitionViewModel {
         if isRetrying {
             return "重試中... (\(retryCount)/\(maxRetryCount))"
         } else if recognitionStatus == .loading {
-            let percentage = Int(uploadProgress * 100)
-            return "處理中... \(percentage)%"
+            return "辨識中"
         } else {
             return statusDescription
         }

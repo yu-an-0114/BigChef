@@ -62,7 +62,7 @@ struct FoodRecognitionLoadingView: View {
 
                 // 內層進度圓環
                 Circle()
-                    .trim(from: 0, to: progress ?? 0.7)
+                    .trim(from: 0, to: 0.7)
                     .stroke(
                         Color.brandOrange,
                         style: StrokeStyle(lineWidth: 8, lineCap: .round)
@@ -81,14 +81,6 @@ struct FoodRecognitionLoadingView: View {
                         .foregroundColor(.brandOrange)
                         .scaleEffect(pulseScale)
                 }
-            }
-
-            // 進度百分比（如果有提供）
-            if let progress = progress {
-                Text("\(Int(progress * 100))%")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.brandOrange)
             }
         }
     }
