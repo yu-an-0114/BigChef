@@ -44,7 +44,8 @@ final class NetworkService: NetworkServiceProtocol {
                 return promise(.failure(NetworkError.invalidURL))
             }
             let configuration = URLSessionConfiguration.default
-            configuration.timeoutIntervalForResource = 60.0 // 60 seconds
+            configuration.timeoutIntervalForRequest = 5.0 // 5 seconds for request
+            configuration.timeoutIntervalForResource = 10.0 // 10 seconds for resource
             let session = URLSession(configuration: configuration)
             session.dataTaskPublisher(for: url)
                 .tryMap { (data, response) -> Data in

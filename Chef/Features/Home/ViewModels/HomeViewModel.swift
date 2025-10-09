@@ -71,14 +71,15 @@ final class HomeViewModel: ObservableObject {
     
     // MARK: - Public Methods
     func fetchAllDishes() {
-        self.viewState = .loading
-        self.dataSourceMessage = "🔄 正在載入資料..."
-
         print("HomeViewModel: 🚀 開始載入菜品資料...")
 
-        // 首頁永遠顯示一般食譜，不根據登入狀態選擇
+        // ✅ 優化：優先載入假資料，立即顯示 UI
+        print("HomeViewModel: 📱 優先載入假資料以快速顯示畫面")
+        self.loadMockData()
+
+        // ✅ 在背景嘗試載入 API 資料
         print("HomeViewModel: 🚀 首頁顯示一般食譜")
-        print("HomeViewModel: 🌐 使用 API 端點: \(ConfigManager.shared.fullAPIBaseURL)/recipes")
+        print("HomeViewModel: 🌐 背景嘗試 API 端點: \(ConfigManager.shared.fullAPIBaseURL)/recipes")
 
         // 首頁固定使用 recipes API
         let apiCall = service.fetchRecipes(page: 1, size: 20)
@@ -87,15 +88,9 @@ final class HomeViewModel: ObservableObject {
                 guard let self = self else { return }
                 switch completion {
                 case .failure(let error):
-                    print("HomeViewModel: ❌ API 請求失敗")
+                    print("HomeViewModel: ⚠️ API 請求失敗（繼續使用假資料）")
                     print("HomeViewModel: 📋 錯誤詳情: \(error.localizedDescription)")
-
-                    // 簡化錯誤日誌，避免命名衝突
-                    print("HomeViewModel: 🔧 錯誤類型: \(type(of: error))")
-
-                    // If API fails, load mock data as fallback
-                    print("HomeViewModel: 🔄 切換到模擬資料作為後備方案")
-                    self.loadMockData()
+                    // ✅ 已經有假資料在顯示，不需要再次載入
                 case .finished:
                     print("HomeViewModel: ✅ API 請求完成")
                 }
@@ -132,8 +127,7 @@ final class HomeViewModel: ObservableObject {
                 print("  - 有效且已批准: \(validRecipes.count)")
 
                 if validRecipes.isEmpty {
-                    print("HomeViewModel: ⚠️ 沒有有效的已批准菜品，切換到模擬資料")
-                    self.loadMockData()
+                    print("HomeViewModel: ⚠️ 沒有有效的已批准菜品，繼續使用假資料")
                     return
                 }
 
