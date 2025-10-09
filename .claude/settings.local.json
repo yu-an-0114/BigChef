@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild:*)",
+      "Bash(find:*)",
+      "Read(//Users/mchiii/Library/Developer/Xcode/DerivedData/**)",
+      "WebFetch(domain:github.com)",
+      "Bash(swiftc:*)",
+      "Bash(plutil:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
