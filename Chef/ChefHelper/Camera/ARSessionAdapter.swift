@@ -124,6 +124,12 @@ final class ARSessionAdapter: NSObject, CameraSession, ARSessionDelegate {
             processedFrameCount = 0
         }
     }
+
+    /// 重置手勢辨識狀態（用於步驟切換等場景）
+    func resetGestureState() {
+        print("🔄 [ARSessionAdapter] 重置手勢辨識狀態")
+        handDetectionManager.resetGestureRecognition()
+    }
     
     // MARK: - 手勢檢測設定
     private func setupGestureDetection() {

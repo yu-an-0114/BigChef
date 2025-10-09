@@ -17,6 +17,7 @@
 		68CE26CC2DD88C6200365F01 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 68CE26CB2DD88C6200365F01 /* FirebaseCore */; };
 		68CE26CE2DD88C6200365F01 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 68CE26CD2DD88C6200365F01 /* FirebaseStorage */; };
 		C44D72032E967E3B00E372E9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = C44D72022E967E3B00E372E9 /* GoogleService-Info.plist */; };
+		CEB01E99E03445169EE3EB5F /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = 0B3BB932EAB64887BA7480C9 /* Config.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +25,7 @@
 		30DC27062DD591D00081F80C /* ARKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ARKit.framework; path = System/Library/Frameworks/ARKit.framework; sourceTree = SDKROOT; };
 		30DC27082DD591E20081F80C /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
 		C44D72022E967E3B00E372E9 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		0B3BB932EAB64887BA7480C9 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -198,7 +200,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				C44D72032E967E3B00E372E9 /* GoogleService-Info.plist in Resources */,
-			);
+			
+				CEB01E99E03445169EE3EB5F /* Config.plist in Resources */,);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */

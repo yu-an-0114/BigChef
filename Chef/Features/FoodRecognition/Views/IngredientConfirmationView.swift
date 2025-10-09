@@ -142,20 +142,21 @@ struct IngredientConfirmationView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 12) {
-                    ForEach(viewModel.recognizedIngredients, id: \.id) { ingredient in
-                        IngredientCard(
-                            name: ingredient.name,
-                            type: ingredient.type,
-                            confidence: 0.8, // PossibleIngredient doesn't have confidence, use default
-                            isSelected: viewModel.selectedIngredients.contains(ingredient.name)
-                        ) {
+                ForEach(viewModel.recognizedIngredients, id: \.id) { ingredient in
+                    EditableIngredientRow(
+                        name: ingredient.name,
+                        type: ingredient.type,
+                        isSelected: viewModel.selectedIngredients.contains(ingredient.name),
+                        onToggle: {
                             viewModel.toggleIngredientSelection(ingredient.name)
+                        },
+                        onEdit: { newName in
+                            viewModel.updateIngredientName(oldName: ingredient.name, newName: newName)
+                        },
+                        onDelete: {
+                            viewModel.removeRecognizedIngredient(ingredient.name)
                         }
-                    }
+                    )
                 }
             }
 
@@ -165,21 +166,15 @@ struct IngredientConfirmationView: View {
                     .foregroundColor(.secondary)
 
                 ForEach(Array(viewModel.customIngredients.enumerated()), id: \.offset) { index, ingredient in
-                    HStack {
-                        Text(ingredient)
-                            .font(.body)
-                        Spacer()
-                        Button(action: {
+                    EditableCustomItemRow(
+                        name: ingredient,
+                        onEdit: { newName in
+                            viewModel.updateIngredientName(oldName: ingredient, newName: newName)
+                        },
+                        onDelete: {
                             viewModel.removeCustomIngredient(at: index)
-                        }) {
-                            Image(systemName: "minus.circle.fill")
-                                .foregroundColor(.red)
                         }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                    )
                 }
             }
 
@@ -255,20 +250,21 @@ struct IngredientConfirmationView: View {
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
-                LazyVGrid(columns: [
-                    GridItem(.flexible()),
-                    GridItem(.flexible())
-                ], spacing: 12) {
-                    ForEach(viewModel.recognizedEquipment, id: \.id) { equipment in
-                        EquipmentCard(
-                            name: equipment.name,
-                            type: equipment.type,
-                            confidence: 0.8, // PossibleEquipment doesn't have confidence, use default
-                            isSelected: viewModel.selectedEquipment.contains(equipment.name)
-                        ) {
+                ForEach(viewModel.recognizedEquipment, id: \.id) { equipment in
+                    EditableEquipmentRow(
+                        name: equipment.name,
+                        type: equipment.type,
+                        isSelected: viewModel.selectedEquipment.contains(equipment.name),
+                        onToggle: {
                             viewModel.toggleEquipmentSelection(equipment.name)
+                        },
+                        onEdit: { newName in
+                            viewModel.updateEquipmentName(oldName: equipment.name, newName: newName)
+                        },
+                        onDelete: {
+                            viewModel.removeRecognizedEquipment(equipment.name)
                         }
-                    }
+                    )
                 }
             }
 
@@ -278,21 +274,15 @@ struct IngredientConfirmationView: View {
                     .foregroundColor(.secondary)
 
                 ForEach(Array(viewModel.customEquipment.enumerated()), id: \.offset) { index, equipment in
-                    HStack {
-                        Text(equipment)
-                            .font(.body)
-                        Spacer()
-                        Button(action: {
+                    EditableCustomItemRow(
+                        name: equipment,
+                        onEdit: { newName in
+                            viewModel.updateEquipmentName(oldName: equipment, newName: newName)
+                        },
+                        onDelete: {
                             viewModel.removeCustomEquipment(at: index)
-                        }) {
-                            Image(systemName: "minus.circle.fill")
-                                .foregroundColor(.red)
                         }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                    )
                 }
             }
 
@@ -538,6 +528,189 @@ struct EquipmentCard: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+    }
+}
+
+// MARK: - Editable Item Components
+
+struct EditableIngredientRow: View {
+    let name: String
+    let type: String
+    let isSelected: Bool
+    let onToggle: () -> Void
+    let onEdit: (String) -> Void
+    let onDelete: () -> Void
+
+    @State private var isEditing = false
+    @State private var editedName: String = ""
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Checkbox
+            Button(action: onToggle) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isSelected ? .blue : .gray)
+                    .font(.title3)
+            }
+
+            // Content
+            if isEditing {
+                TextField("食材名稱", text: $editedName, onCommit: {
+                    if !editedName.isEmpty {
+                        onEdit(editedName)
+                    }
+                    isEditing = false
+                })
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(name)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                    Text(type)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            // Action buttons
+            if !isEditing {
+                Button(action: {
+                    editedName = name
+                    isEditing = true
+                }) {
+                    Image(systemName: "pencil.circle")
+                        .foregroundColor(.blue)
+                        .font(.title3)
+                }
+
+                Button(action: onDelete) {
+                    Image(systemName: "trash.circle.fill")
+                        .foregroundColor(.red)
+                        .font(.title3)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
+    }
+}
+
+struct EditableEquipmentRow: View {
+    let name: String
+    let type: String
+    let isSelected: Bool
+    let onToggle: () -> Void
+    let onEdit: (String) -> Void
+    let onDelete: () -> Void
+
+    @State private var isEditing = false
+    @State private var editedName: String = ""
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Checkbox
+            Button(action: onToggle) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isSelected ? .orange : .gray)
+                    .font(.title3)
+            }
+
+            // Content
+            if isEditing {
+                TextField("器具名稱", text: $editedName, onCommit: {
+                    if !editedName.isEmpty {
+                        onEdit(editedName)
+                    }
+                    isEditing = false
+                })
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(name)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                    Text(type)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            // Action buttons
+            if !isEditing {
+                Button(action: {
+                    editedName = name
+                    isEditing = true
+                }) {
+                    Image(systemName: "pencil.circle")
+                        .foregroundColor(.blue)
+                        .font(.title3)
+                }
+
+                Button(action: onDelete) {
+                    Image(systemName: "trash.circle.fill")
+                        .foregroundColor(.red)
+                        .font(.title3)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
+    }
+}
+
+struct EditableCustomItemRow: View {
+    let name: String
+    let onEdit: (String) -> Void
+    let onDelete: () -> Void
+
+    @State private var isEditing = false
+    @State private var editedName: String = ""
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if isEditing {
+                TextField("名稱", text: $editedName, onCommit: {
+                    if !editedName.isEmpty {
+                        onEdit(editedName)
+                    }
+                    isEditing = false
+                })
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+            } else {
+                Text(name)
+                    .font(.body)
+                    .foregroundColor(.primary)
+            }
+
+            Spacer()
+
+            if !isEditing {
+                Button(action: {
+                    editedName = name
+                    isEditing = true
+                }) {
+                    Image(systemName: "pencil.circle")
+                        .foregroundColor(.blue)
+                        .font(.title3)
+                }
+
+                Button(action: onDelete) {
+                    Image(systemName: "trash.circle.fill")
+                        .foregroundColor(.red)
+                        .font(.title3)
+                }
+            }
+        }
+        .padding(12)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
     }
 }
 

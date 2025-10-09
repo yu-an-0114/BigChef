@@ -29,6 +29,10 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
             // 🔄 更新 stepViewModel 的當前步驟，讓 SwiftUI 自動重新創建 CookingARView
             print("📝 [CookViewController] 更新 stepViewModel.currentStepModel to step \(steps[currentIndex].step_number)")
             stepViewModel.currentStepModel = steps[currentIndex]
+
+            // ✅ 重置手勢辨識狀態，允許新步驟重新辨識手勢
+            print("🔄 [CookViewController] 重置手勢辨識狀態以支援新步驟")
+            gestureSession.resetGestureState()
         }
     }
 

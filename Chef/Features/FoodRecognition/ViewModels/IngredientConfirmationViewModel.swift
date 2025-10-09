@@ -196,6 +196,82 @@ final class IngredientConfirmationViewModel: ObservableObject {
         print("❌ 取消選擇所有器具")
     }
 
+    // MARK: - Editing Methods
+
+    func updateIngredientName(oldName: String, newName: String) {
+        let trimmedNewName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedNewName.isEmpty else { return }
+        guard trimmedNewName != oldName else { return }
+
+        // 檢查新名稱是否已存在
+        let allIngredientNames = recognizedIngredients.map { $0.name } + customIngredients
+        guard !allIngredientNames.contains(where: { $0 == trimmedNewName && $0 != oldName }) else {
+            print("❌ 食材名稱已存在: \(trimmedNewName)")
+            return
+        }
+
+        // 更新辨識到的食材
+        if let index = recognizedIngredients.firstIndex(where: { $0.name == oldName }) {
+            recognizedIngredients[index] = PossibleIngredient(name: trimmedNewName, type: recognizedIngredients[index].type)
+            // 更新選擇狀態
+            if selectedIngredients.contains(oldName) {
+                selectedIngredients.remove(oldName)
+                selectedIngredients.insert(trimmedNewName)
+            }
+            print("✏️ 更新辨識食材: \(oldName) -> \(trimmedNewName)")
+        }
+        // 更新自訂食材
+        else if let index = customIngredients.firstIndex(of: oldName) {
+            customIngredients[index] = trimmedNewName
+            print("✏️ 更新自訂食材: \(oldName) -> \(trimmedNewName)")
+        }
+    }
+
+    func updateEquipmentName(oldName: String, newName: String) {
+        let trimmedNewName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedNewName.isEmpty else { return }
+        guard trimmedNewName != oldName else { return }
+
+        // 檢查新名稱是否已存在
+        let allEquipmentNames = recognizedEquipment.map { $0.name } + customEquipment
+        guard !allEquipmentNames.contains(where: { $0 == trimmedNewName && $0 != oldName }) else {
+            print("❌ 器具名稱已存在: \(trimmedNewName)")
+            return
+        }
+
+        // 更新辨識到的器具
+        if let index = recognizedEquipment.firstIndex(where: { $0.name == oldName }) {
+            recognizedEquipment[index] = PossibleEquipment(name: trimmedNewName, type: recognizedEquipment[index].type)
+            // 更新選擇狀態
+            if selectedEquipment.contains(oldName) {
+                selectedEquipment.remove(oldName)
+                selectedEquipment.insert(trimmedNewName)
+            }
+            print("✏️ 更新辨識器具: \(oldName) -> \(trimmedNewName)")
+        }
+        // 更新自訂器具
+        else if let index = customEquipment.firstIndex(of: oldName) {
+            customEquipment[index] = trimmedNewName
+            print("✏️ 更新自訂器具: \(oldName) -> \(trimmedNewName)")
+        }
+    }
+
+    func removeRecognizedIngredient(_ ingredientName: String) {
+        if let index = recognizedIngredients.firstIndex(where: { $0.name == ingredientName }) {
+            recognizedIngredients.remove(at: index)
+            selectedIngredients.remove(ingredientName)
+            print("🗑️ 移除辨識食材: \(ingredientName)")
+        }
+    }
+
+    func removeRecognizedEquipment(_ equipmentName: String) {
+        if let index = recognizedEquipment.firstIndex(where: { $0.name == equipmentName }) {
+            recognizedEquipment.remove(at: index)
+            selectedEquipment.remove(equipmentName)
+            print("🗑️ 移除辨識器具: \(equipmentName)")
+        }
+    }
+
     // MARK: - Recipe Generation Methods
 
     /// 生成食譜
