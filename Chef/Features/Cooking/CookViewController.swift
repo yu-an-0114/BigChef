@@ -54,7 +54,7 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     var qaInputBubbleView: CookQAInputBubbleView?
     private var qaBubbleDismissTap: UITapGestureRecognizer?
     var pendingDraftQuestion: String = ""
-    let qaWakeWord = "阿龍"
+    let qaWakeWord = "阿里"
     lazy var qaVoiceService = QAKeywordVoiceService(wakeWord: qaWakeWord)
     var isVoiceDictationActive = false
     var shouldStartDictationAfterBubblePresented = false
