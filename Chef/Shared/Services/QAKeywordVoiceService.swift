@@ -70,7 +70,7 @@ final class QAKeywordVoiceService: NSObject {
         }
     }
 
-    func startKeywordListening() {
+    func startKeywordListening(logStart: Bool = true) {
         guard speechRecognizer?.isAvailable == true else {
             onError?(VoiceError.speechRecognizerUnavailable)
             return
@@ -80,7 +80,9 @@ final class QAKeywordVoiceService: NSObject {
             return
         }
         guard !isListeningForWakeWord else { return }
-        print("🎧 [QAVoiceService] Listening for wake word…")
+        if logStart {
+            print("🎧 [QAVoiceService] Listening for wake word…")
+        }
         startRecognition(for: .keywordListening)
     }
 
@@ -179,8 +181,10 @@ final class QAKeywordVoiceService: NSObject {
             guard let self else { return }
 
             if let error {
-                self.onError?(error)
-                self.transitionToIdle()
+                if !self.handleSpeechRecognitionError(error as NSError) {
+                    self.onError?(error)
+                    self.transitionToIdle()
+                }
                 return
             }
 
@@ -229,7 +233,7 @@ final class QAKeywordVoiceService: NSObject {
 
     private func restartKeywordListening() {
         tearDownRecognition()
-        startKeywordListening()
+        startKeywordListening(logStart: false)
     }
 
     private func transitionToIdle() {
@@ -287,5 +291,34 @@ final class QAKeywordVoiceService: NSObject {
         } else {
             print("🎧 [QAVoiceService] Keyword transcript: \(transcript)")
         }
+    }
+
+    private func handleSpeechRecognitionError(_ error: NSError) -> Bool {
+        guard error.domain == SFSpeechRecognitionErrorDomain else {
+            return false
+        }
+
+        let description = error.localizedDescription.lowercased()
+        let isSilenceTimeout = description.contains("no speech detected") || description.contains("speech timeout")
+        let isCancellation = description.contains("canceled")
+
+        if isSilenceTimeout {
+            switch mode {
+            case .keywordListening:
+                restartKeywordListening()
+            case .dictating:
+                finishDictation()
+            case .idle:
+                break
+            }
+            return true
+        }
+
+        if isCancellation {
+            transitionToIdle()
+            return true
+        }
+
+        return false
     }
 }
