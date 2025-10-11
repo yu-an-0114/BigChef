@@ -117,25 +117,16 @@ enum RecipeService {
     private static func generateRecipeUsingFallback(request: RecognizedFoodRecipeRequest) async throws -> SuggestRecipeResponse {
         print("🔄 使用備用方案生成 \(request.recognizedFoodName) 的食譜")
 
-        let sanitizedDishName = sanitizeDishName(request.recognizedFoodName)
-
-        let preferredIngredients = request.recognizedIngredients
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        let preferredEquipment = request.recognizedEquipment
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        print("🛠️ 備用食譜請求 -> 菜名：\(sanitizedDishName)")
+        let timestamp = Date().timeIntervalSince1970
+        let cacheBuster = String(format: "%.0f", timestamp)
 
         let fallbackRequest = GenerateRecipeByNameRequest(
-            dish_name: sanitizedDishName,
-            preferred_ingredients: preferredIngredients,
+            dish_name: request.recognizedFoodName,
+            preferred_ingredients: request.recognizedIngredients + ["timestamp_\(cacheBuster)"],
             excluded_ingredients: [],
-            preferred_equipment: preferredEquipment,
+            preferred_equipment: request.recognizedEquipment,
             preference: GenerateRecipeByNameRequest.GeneratePreference(
-                cooking_method: inferCookingMethod(from: sanitizedDishName),
+                cooking_method: "製作 \(request.recognizedFoodName)",
                 doneness: nil,
                 serving_size: "\(request.servings)人份"
             )
@@ -146,9 +137,14 @@ enum RecipeService {
 
     // MARK: - 食譜生成 async 函式
     static func generateRecipe(using request: SuggestRecipeRequest) async throws -> SuggestRecipeResponse {
-        let preferredIngredients = request.available_ingredients
+        let timestamp = Date().timeIntervalSince1970
+        let cacheBuster = String(format: "%.0f", timestamp)
+
+        var preferredIngredients = request.available_ingredients
             .map { $0.name }
             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+        preferredIngredients.append("timestamp_\(cacheBuster)")
 
         let preferredEquipment = request.available_equipment
             .map { $0.name }
@@ -203,40 +199,6 @@ enum RecipeService {
             return "\(ingredient)創意料理"
         default:
             return "AI 創意料理"
-        }
-    }
-
-    private static func sanitizeDishName(_ name: String) -> String {
-        var sanitized = name.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let prefixes = ["製作", "製備", "準備", "如何製作", "怎麼做", "做"]
-        for prefix in prefixes {
-            if sanitized.hasPrefix(prefix) {
-                sanitized = String(sanitized.dropFirst(prefix.count))
-                break
-            }
-        }
-
-        sanitized = sanitized.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if sanitized.hasPrefix("的") {
-            sanitized = String(sanitized.dropFirst())
-        }
-
-        return sanitized.isEmpty ? name : sanitized
-    }
-
-    private static func inferCookingMethod(from dishName: String) -> String? {
-        let trimmedName = dishName.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let orderedMethods = [
-            "涼拌", "紅燒", "乾煎", "清蒸", "油炸", "慢燉", "清燉", "燉", "煮", "炒", "煎", "烤", "蒸", "炸", "燜", "滷", "拌"
-        ]
-
-        for method in orderedMethods {
-            if trimmedName.contains(method) {
-                return method
-            }
         }
 
         return nil

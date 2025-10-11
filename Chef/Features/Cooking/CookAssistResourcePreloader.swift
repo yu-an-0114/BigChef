@@ -89,8 +89,8 @@ final class CookAssistResourcePreloader {
     }
 
     private func requestPermissionsIfNeeded(for service: QAKeywordVoiceService) async -> Bool {
-        await MainActor.run {
-            return await withCheckedContinuation { continuation in
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async {
                 service.requestPermissions { granted in
                     continuation.resume(returning: granted)
                 }
