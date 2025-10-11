@@ -7,8 +7,12 @@ struct AnimationFactory {
         print("🏭 [AnimationFactory] 創建動畫: type=\(type.rawValue)")
         switch type {
         case .putIntoContainer:
+            let ingredientList = params.ingredient?
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty } ?? []
             return PutIntoContainerAnimation(
-                ingredientName: params.ingredient ?? "",
+                ingredientNames: ingredientList,
                 container: params.container ?? .pan,
                 scale: 0.05,
                 isRepeat: true

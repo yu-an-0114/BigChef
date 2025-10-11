@@ -14,7 +14,9 @@ class PutIntoContainerAnimation: Animation {
     override var containerType: Container? { container }
 
     private let container: Container
-    private let model: Entity
+    private let ingredientNames: [String]
+    private var currentIngredientIndex: Int = 0
+    private var activeEntity: Entity?
     private weak var arViewRef: ARView?
     private var completionObserver: NSObjectProtocol?
 
@@ -28,16 +30,47 @@ class PutIntoContainerAnimation: Animation {
     private static var fallbackTextCache: [String: Entity] = [:]
     private static let fallbackTextLock = NSLock()
 
-    init(ingredientName: String,
+    init(ingredientNames: [String],
          container: Container,
          scale: Float = 1.0,
          isRepeat: Bool = false) {
         self.container = container
-        self.model = PutIntoContainerAnimation.resolveModel(
+        let sanitized = ingredientNames
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if sanitized.isEmpty {
+            self.ingredientNames = [""]
+        } else {
+            self.ingredientNames = sanitized
+        }
+        super.init(type: .putIntoContainer, scale: scale, isRepeat: isRepeat)
+    }
+
+    private var nextIngredientIndex: Int {
+        guard !ingredientNames.isEmpty else { return 0 }
+        return (currentIngredientIndex + 1) % ingredientNames.count
+    }
+
+    private func makeEntity(for ingredientName: String) -> Entity {
+        let base = PutIntoContainerAnimation.resolveModel(
             ingredientName: ingredientName,
             scale: scale
         )
-        super.init(type: .putIntoContainer, scale: scale, isRepeat: isRepeat)
+        let entity = base.clone(recursive: true)
+        entity.scale = SIMD3<Float>(repeating: scale)
+        entity.components.set(BillboardComponent())
+        for child in entity.children {
+            child.components.set(BillboardComponent())
+        }
+        let startPosition = SIMD3<Float>(0, 0.2, -0.5)
+        entity.position = startPosition
+        return entity
+    }
+
+    private func replaceActiveEntity(with entity: Entity, on anchor: AnchorEntity) {
+        activeEntity?.removeFromParent()
+        anchor.addChild(entity)
+        activeEntity = entity
     }
 
     private static func resolveModel(ingredientName: String, scale: Float) -> Entity {
@@ -95,6 +128,8 @@ class PutIntoContainerAnimation: Animation {
     /// 把模型加到 Anchor 並觸發掉落
     override func applyAnimation(to anchor: AnchorEntity, on arView: ARView) {
         arViewRef = arView
+        currentIngredientIndex = 0
+        activeEntity = nil
 
         // ✅ 創建相機錨點，讓模型跟隨相機移動
         let cameraAnchor: AnchorEntity
@@ -110,29 +145,11 @@ class PutIntoContainerAnimation: Animation {
         // 將原本的 anchor 設為相機錨點的子物件
         anchor.setParent(cameraAnchor)
 
-        let entity = model.clone(recursive: true)
-        entity.scale = SIMD3<Float>(repeating: scale)
+        let initialName = ingredientNames[currentIngredientIndex]
+        let entity = makeEntity(for: initialName)
+        replaceActiveEntity(with: entity, on: anchor)
 
-        // ✅ 添加 Billboard 組件讓模型始終面對相機
-        entity.components.set(BillboardComponent())
-
-        // 如果有文字子實體，也讓它面對相機
-        for child in entity.children {
-            child.components.set(BillboardComponent())
-        }
-
-        anchor.addChild(entity)
-
-        // 設置初始位置（相機前方偏上）
-        let startPosition = SIMD3<Float>(0, 0.2, -0.5) // 相機前方 0.5 公尺，向上 0.2 公尺
-        entity.position = startPosition
-
-        if let rawEnd = containerPosition {
-            var endPos = rawEnd
-            // 手動微調 endPos
-            endPos.y -= 50
-            drop(to: endPos)
-        }
+        dropToContainer()
 
         // 完成後再度呼叫 drop(to:) 重播掉落
         if let observer = completionObserver {
@@ -144,8 +161,9 @@ class PutIntoContainerAnimation: Animation {
             object: self,
             queue: .main
         ) { [weak self] _ in
-            guard let self = self, let pos = self.containerPosition else { return }
-            self.drop(to: pos)
+            guard let self = self else { return }
+            self.prepareNextIngredient()
+            self.dropToContainer()
         }
 
         // 動畫結束後通知（保留原有觸發）
@@ -155,6 +173,24 @@ class PutIntoContainerAnimation: Animation {
                 .post(name: .init("PutIntoContainerAnimationCompleted"),
                       object: self)
         }
+    }
+
+    private func prepareNextIngredient() {
+        guard let anchor = anchorEntity else { return }
+        currentIngredientIndex = nextIngredientIndex
+        let name = ingredientNames[currentIngredientIndex]
+        let entity = makeEntity(for: name)
+        replaceActiveEntity(with: entity, on: anchor)
+    }
+
+    private func dropToContainer() {
+        guard let rawEnd = containerPosition, let anchor = anchorEntity else { return }
+        var startTransform = anchor.transform
+        startTransform.translation = rawEnd
+        anchor.transform = startTransform
+        var endPos = rawEnd
+        endPos.y -= 50
+        drop(to: endPos)
     }
 
     /// 更新 bounding box 時，同步計算框底世界座標
