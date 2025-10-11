@@ -319,15 +319,20 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     }
 
     @objc func prevStep() {
-        guard currentIndex > 0 else { return }
-        print("⬅️ [CookViewController] prevStep: \(currentIndex) -> \(currentIndex - 1)")
-        currentIndex -= 1
+        goToStep(currentIndex - 1)
     }
 
     @objc func nextStep() {
-        guard currentIndex < steps.count - 1 else { return }
-        print("➡️ [CookViewController] nextStep: \(currentIndex) -> \(currentIndex + 1)")
-        currentIndex += 1
+        goToStep(currentIndex + 1)
+    }
+
+    func goToStep(_ index: Int) {
+        guard index != currentIndex else { return }
+        guard steps.indices.contains(index) else { return }
+
+        let direction = index > currentIndex ? "➡️" : "⬅️"
+        print("\(direction) [CookViewController] goToStep: \(currentIndex) -> \(index)")
+        currentIndex = index
     }
 
     @objc private func completeRecipe() {
