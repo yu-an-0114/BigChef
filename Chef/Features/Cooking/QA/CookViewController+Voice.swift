@@ -149,14 +149,22 @@ extension CookViewController {
             }
         }
 
-        qaVoiceService.requestPermissions { [weak self] granted in
-            DispatchQueue.main.async {
+        if CookAssistResourcePreloader.shared.hasVoicePermission {
+            DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                if granted {
-                    print("🎤 [QAVoiceService] Permissions granted. Start keyword listening.")
-                    self.qaVoiceService.startKeywordListening()
-                } else {
-                    print("🚫 [QAVoiceService] Permissions denied.")
+                print("🎤 [QAVoiceService] Permissions already granted. Resume keyword listening.")
+                self.qaVoiceService.startKeywordListening()
+            }
+        } else {
+            qaVoiceService.requestPermissions { [weak self] granted in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if granted {
+                        print("🎤 [QAVoiceService] Permissions granted. Start keyword listening.")
+                        self.qaVoiceService.startKeywordListening()
+                    } else {
+                        print("🚫 [QAVoiceService] Permissions denied.")
+                    }
                 }
             }
         }
