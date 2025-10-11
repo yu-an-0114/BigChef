@@ -138,10 +138,9 @@ final class CookLoadingViewController: UIViewController {
         view.addSubview(progressStack)
 
         let steps: [String] = [
-            "載入 AR 動畫素材",
-            "準備語音控制",
-            "初始化手勢偵測",
-            "載入 QA 對話模型"
+            "載入AR",
+            "手勢偵測啟動中",
+            "載入Ari 阿里語音助理"
         ]
 
         progressSteps = steps.map { title in
@@ -178,20 +177,20 @@ final class CookLoadingViewController: UIViewController {
 
     private func runLoadingSequence() async {
         let operations: [LoadingOperation] = [
-            LoadingOperation(title: "正在準備 AR 動畫資源…") { [weak self] in
+            LoadingOperation(title: "載入AR…") { [weak self] in
                 guard let self else { return }
                 await self.preloadAnimationAssets(for: self.steps)
             },
-            LoadingOperation(title: "啟動語音控制模組…") {
-                await CookAssistResourcePreloader.shared.preloadVoiceControl(
-                    wakeWord: CookAssistResourcePreloader.defaultWakeWord
-                )
-            },
-            LoadingOperation(title: "初始化手勢偵測…") {
+            LoadingOperation(title: "手勢偵測啟動中…") {
                 await CookAssistResourcePreloader.shared.preloadGestureControl()
             },
-            LoadingOperation(title: "載入 QA 對話模型…") {
-                await CookAssistResourcePreloader.shared.preloadQAInteractionResources()
+            LoadingOperation(title: "載入Ari 阿里語音助理…") {
+                async let qaResources = CookAssistResourcePreloader.shared.preloadQAInteractionResources()
+                async let voiceControl = CookAssistResourcePreloader.shared.preloadVoiceControl(
+                    wakeWord: CookAssistResourcePreloader.defaultWakeWord
+                )
+                await qaResources
+                await voiceControl
             }
         ]
 
