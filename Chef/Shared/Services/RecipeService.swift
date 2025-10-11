@@ -200,8 +200,6 @@ enum RecipeService {
         default:
             return "AI 創意料理"
         }
-
-        return nil
     }
     // MARK: - 食物辨識 async 函式
     static func recognizeFood(using request: FoodRecognitionRequest) async throws -> FoodRecognitionResponse {
