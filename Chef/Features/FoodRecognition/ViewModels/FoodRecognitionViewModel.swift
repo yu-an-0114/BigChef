@@ -177,10 +177,23 @@ final class FoodRecognitionViewModel: ObservableObject {
         }
     }
 
-    /// 重新辨識（智能重試）
+    /// 重新辨識（智能重試 / 手動重新辨識）
     func retryRecognition() {
         guard let image = selectedImage else {
             print("❌ 沒有可重新辨識的圖片")
+            return
+        }
+
+        // ✅ 若目前為成功狀態，使用者點選「重新辨識」時應直接重新執行辨識
+        if recognitionStatus == .success {
+            print("🔁 使用者在成功狀態下要求重新辨識，重新啟動流程")
+            retryCount = 0
+            isRetrying = false
+            clearError()
+
+            Task {
+                await performRecognition(image: image, hint: descriptionHint.isEmpty ? nil : descriptionHint)
+            }
             return
         }
 
