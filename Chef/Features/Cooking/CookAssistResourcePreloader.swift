@@ -1,7 +1,7 @@
 import Foundation
-import SceneKit
+@preconcurrency import SceneKit
 
-final class CookAssistResourcePreloader {
+final class CookAssistResourcePreloader: @unchecked Sendable {
     static let shared = CookAssistResourcePreloader()
     static let defaultWakeWord = "阿里"
 
@@ -20,11 +20,11 @@ final class CookAssistResourcePreloader {
             return existing
         }
 
-        let service = QAKeywordVoiceService(wakeWord: wakeWord)
-        stateQueue.async(flags: .barrier) {
-            self.voiceServices[wakeWord] = service
+        return stateQueue.sync(flags: .barrier) {
+            let service = QAKeywordVoiceService(wakeWord: wakeWord)
+            voiceServices[wakeWord] = service
+            return service
         }
-        return service
     }
 
     func preloadVoiceControl(wakeWord: String) async {
@@ -32,16 +32,16 @@ final class CookAssistResourcePreloader {
         let shouldRequest = stateQueue.sync { !voicePermissionRequested }
         guard shouldRequest else { return }
 
-        stateQueue.async(flags: .barrier) {
-            self.voicePermissionRequested = true
+        stateQueue.sync(flags: .barrier) {
+            voicePermissionRequested = true
         }
 
         let granted = await requestPermissionsIfNeeded(for: service)
 
-        stateQueue.async(flags: .barrier) {
-            self.voicePermissionGranted = granted
+        stateQueue.sync(flags: .barrier) {
+            voicePermissionGranted = granted
             if !granted {
-                self.voicePermissionRequested = false
+                voicePermissionRequested = false
             }
         }
     }
@@ -50,11 +50,10 @@ final class CookAssistResourcePreloader {
         let needsWarmup = stateQueue.sync { gestureManager == nil }
         guard needsWarmup else { return }
 
-        let manager = HandDetectionManager()
-        manager.setGestureEnabled(false)
-
-        stateQueue.async(flags: .barrier) {
-            self.gestureManager = manager
+        stateQueue.sync(flags: .barrier) {
+            let manager = HandDetectionManager()
+            manager.setGestureEnabled(false)
+            gestureManager = manager
         }
     }
 
@@ -71,8 +70,8 @@ final class CookAssistResourcePreloader {
 
         guard let scene else { return }
 
-        stateQueue.async(flags: .barrier) {
-            self.qaScenes[resourceName] = scene
+        stateQueue.sync(flags: .barrier) {
+            qaScenes[resourceName] = scene
         }
     }
 

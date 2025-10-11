@@ -185,8 +185,8 @@ final class CookLoadingViewController: UIViewController {
                 await CookAssistResourcePreloader.shared.preloadGestureControl()
             },
             LoadingOperation(title: "載入Ari 阿里語音助理…") {
-                async let qaResources = CookAssistResourcePreloader.shared.preloadQAInteractionResources()
-                async let voiceControl = CookAssistResourcePreloader.shared.preloadVoiceControl(
+                async let qaResources: Void = CookAssistResourcePreloader.shared.preloadQAInteractionResources()
+                async let voiceControl: Void = CookAssistResourcePreloader.shared.preloadVoiceControl(
                     wakeWord: CookAssistResourcePreloader.defaultWakeWord
                 )
                 await qaResources

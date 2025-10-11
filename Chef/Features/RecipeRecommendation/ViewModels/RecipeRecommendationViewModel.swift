@@ -302,7 +302,7 @@ final class RecipeRecommendationViewModel: ObservableObject {
     // MARK: - Public Methods - 食材管理
 
     func addIngredient(_ ingredient: AvailableIngredient) {
-        _ = withAnimation(.easeInOut) {
+        withAnimation(.easeInOut) {
             availableIngredients.append(ingredient)
         }
         print("🥬 RecipeRecommendationViewModel: 新增食材 - \(ingredient.name)")
@@ -311,7 +311,7 @@ final class RecipeRecommendationViewModel: ObservableObject {
     func removeIngredient(at index: Int) {
         guard index < availableIngredients.count else { return }
         let removedIngredient = availableIngredients[index]
-        _ = withAnimation(.easeInOut) {
+        withAnimation(.easeInOut) {
             availableIngredients.remove(at: index)
         }
         print("🗑️ RecipeRecommendationViewModel: 移除食材 - \(removedIngredient.name)")
@@ -336,7 +336,7 @@ final class RecipeRecommendationViewModel: ObservableObject {
     // MARK: - Public Methods - 設備管理
 
     func addEquipment(_ equipment: AvailableEquipment) {
-        _ = withAnimation(.easeInOut) {
+        withAnimation(.easeInOut) {
             availableEquipment.append(equipment)
         }
         print("🔧 RecipeRecommendationViewModel: 新增設備 - \(equipment.name)")
@@ -345,7 +345,7 @@ final class RecipeRecommendationViewModel: ObservableObject {
     func removeEquipment(at index: Int) {
         guard index < availableEquipment.count else { return }
         let removedEquipment = availableEquipment[index]
-        _ = withAnimation(.easeInOut) {
+        withAnimation(.easeInOut) {
             availableEquipment.remove(at: index)
         }
         print("🗑️ RecipeRecommendationViewModel: 移除設備 - \(removedEquipment.name)")
