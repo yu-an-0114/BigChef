@@ -175,8 +175,10 @@ final class QAKeywordVoiceService: NSObject {
         self.mode = mode
         isListeningForWakeWord = (mode == .keywordListening)
 
-        recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
+        var currentTask: SFSpeechRecognitionTask?
+        currentTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
+            guard let currentTask, self.recognitionTask === currentTask else { return }
 
             if let error {
                 self.onError?(error)
@@ -198,6 +200,7 @@ final class QAKeywordVoiceService: NSObject {
                 }
             }
         }
+        recognitionTask = currentTask
     }
 
     private func handleRecognitionResult(_ result: SFSpeechRecognitionResult) {
