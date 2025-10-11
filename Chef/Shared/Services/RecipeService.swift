@@ -178,6 +178,12 @@ enum RecipeService {
         return try await generateRecipeByName(using: generateRequest)
     }
 
+    /// 根據使用者的偏好與辨識結果，推導最適合作為生成請求的菜名。
+    ///
+    /// 優先順序如下：
+    /// 1. 使用者在偏好中輸入的食譜描述。
+    /// 2. 從「製作 XXX」這類烹飪方式文字中提取的辨識菜名。
+    /// 3. 以烹調方式與第一個主要食材組合出合理的菜名，若都缺少則使用預設文案。
     private static func deriveDishName(from request: SuggestRecipeRequest) -> String {
         if let description = request.preference.recipe_description?.trimmingCharacters(in: .whitespacesAndNewlines),
            !description.isEmpty {
@@ -237,18 +243,6 @@ enum RecipeService {
         var recognizedName = trimExtendedWhitespaces(String(trimmedMethod[capturedRange]))
 
         guard !recognizedName.isEmpty else { return nil }
-
-        if let ingredient = mainIngredient, !ingredient.isEmpty {
-            let trimmedIngredient = trimExtendedWhitespaces(ingredient)
-
-            if !trimmedIngredient.isEmpty,
-               recognizedName.hasSuffix(trimmedIngredient) {
-                let potentialName = trimExtendedWhitespaces(String(recognizedName.dropLast(trimmedIngredient.count)))
-                if !potentialName.isEmpty {
-                    recognizedName = potentialName
-                }
-            }
-        }
 
         return recognizedName
     }
