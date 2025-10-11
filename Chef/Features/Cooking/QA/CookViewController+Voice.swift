@@ -10,10 +10,7 @@ private struct VoiceCommandDetectionResult {
 extension CookViewController {
     func setupQAVoiceService() {
         qaVoiceService.keywordTranscriptLogger = { [weak self] transcript in
-            guard let self else { return }
-            if self.qaInputBubbleView == nil {
-                print("🎧 [QAVoiceService] Keyword transcript: \(transcript)")
-            }
+            self?.handleKeywordTranscript(transcript)
         }
 
         qaVoiceService.onKeywordDetected = { [weak self] in
@@ -186,19 +183,7 @@ extension CookViewController {
             return !draft.isEmpty || !pending.isEmpty
         }()
 
-        let hasExtraCharactersBeyondCommand: Bool = {
-            var remainder = detection.normalizedText
-            remainder.removeSubrange(detection.matchRange)
-
-            let wakeNormalized = normalizeVoiceCommandText(qaWakeWord)
-            if !wakeNormalized.isEmpty {
-                while let wakeRange = remainder.range(of: wakeNormalized) {
-                    remainder.removeSubrange(wakeRange)
-                }
-            }
-
-            return !remainder.isEmpty
-        }()
+        let hasExtraCharactersBeyondCommand = !normalizedRemainder(afterRemoving: detection).isEmpty
 
         switch command {
         case .nextStep, .previousStep:
@@ -238,6 +223,24 @@ extension CookViewController {
         }
     }
 
+    private func handleKeywordTranscript(_ transcript: String) {
+        guard qaInputBubbleView == nil else { return }
+        print("🎧 [QAVoiceService] Keyword transcript: \(transcript)")
+
+        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        guard let detection = detectVoiceCommand(in: trimmed) else { return }
+        let remainder = normalizedRemainder(afterRemoving: detection)
+        guard remainder.isEmpty else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard self.qaInputBubbleView == nil else { return }
+            _ = self.handleVoiceCommandIfNeeded(from: trimmed)
+        }
+    }
+
     private func detectVoiceCommand(in text: String) -> VoiceCommandDetectionResult? {
         if let directMatch = CookVoiceCommand(rawValue: text) {
             let normalized = normalizeVoiceCommandText(text)
@@ -270,6 +273,20 @@ extension CookViewController {
 
         guard let match = bestMatch else { return nil }
         return VoiceCommandDetectionResult(command: match.command, normalizedText: normalized, matchRange: match.range)
+    }
+
+    private func normalizedRemainder(afterRemoving detection: VoiceCommandDetectionResult) -> String {
+        var remainder = detection.normalizedText
+        remainder.removeSubrange(detection.matchRange)
+
+        let wakeNormalized = normalizeVoiceCommandText(qaWakeWord)
+        if !wakeNormalized.isEmpty {
+            while let wakeRange = remainder.range(of: wakeNormalized) {
+                remainder.removeSubrange(wakeRange)
+            }
+        }
+
+        return remainder
     }
 
     private func normalizeVoiceCommandText(_ text: String) -> String {
