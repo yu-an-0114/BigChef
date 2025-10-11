@@ -291,53 +291,63 @@ extension CookViewController {
     }
 
     private func performVoiceCommand(_ command: CookVoiceCommand) {
-        print("🚦 [QAVoiceService] Executing voice command: \(command.rawValue)")
+        let execute = { [weak self] in
+            guard let self else { return }
 
-        switch command {
-        case .nextStep:
-            guard qaHasNextStep() else {
-                presentToast("已經是最後一步")
-                resetVoiceDictationAfterCommand(resumeDictation: false)
-                return
+            print("🚦 [QAVoiceService] Executing voice command: \(command.rawValue)")
+
+            switch command {
+            case .nextStep:
+                guard self.qaHasNextStep() else {
+                    self.presentToast("已經是最後一步")
+                    self.resetVoiceDictationAfterCommand(resumeDictation: false)
+                    return
+                }
+                self.nextStep()
+                self.presentToast(command.rawValue)
+                self.resetVoiceDictationAfterCommand(resumeDictation: false)
+
+            case .previousStep:
+                guard self.qaHasPreviousStep() else {
+                    self.presentToast("已經是第一步")
+                    self.resetVoiceDictationAfterCommand(resumeDictation: false)
+                    return
+                }
+                self.prevStep()
+                self.presentToast(command.rawValue)
+                self.resetVoiceDictationAfterCommand(resumeDictation: false)
+
+            case .submit:
+                guard let bubble = self.qaInputBubbleView else {
+                    self.presentToast("目前沒有問題可以送出")
+                    self.resetVoiceDictationAfterCommand(resumeDictation: false)
+                    return
+                }
+                bubble.clearValidationError()
+                bubble.onSubmit?(bubble.currentDraftText())
+                bubble.setDraftText("")
+                self.pendingDraftQuestion = ""
+
+            case .clear:
+                guard let bubble = self.qaInputBubbleView else {
+                    self.pendingDraftQuestion = ""
+                    self.presentToast("目前沒有內容可以清除")
+                    self.resetVoiceDictationAfterCommand(resumeDictation: false)
+                    return
+                }
+
+                bubble.clearValidationError()
+                bubble.onClear?()
+                bubble.setDraftText("")
+                self.presentToast("已清除")
+                self.resetVoiceDictationAfterCommand(resumeDictation: true)
             }
-            nextStep()
-            presentToast(command.rawValue)
-            resetVoiceDictationAfterCommand(resumeDictation: false)
+        }
 
-        case .previousStep:
-            guard qaHasPreviousStep() else {
-                presentToast("已經是第一步")
-                resetVoiceDictationAfterCommand(resumeDictation: false)
-                return
-            }
-            prevStep()
-            presentToast(command.rawValue)
-            resetVoiceDictationAfterCommand(resumeDictation: false)
-
-        case .submit:
-            guard let bubble = qaInputBubbleView else {
-                presentToast("目前沒有問題可以送出")
-                resetVoiceDictationAfterCommand(resumeDictation: false)
-                return
-            }
-            bubble.clearValidationError()
-            bubble.onSubmit?(bubble.currentDraftText())
-            bubble.setDraftText("")
-            pendingDraftQuestion = ""
-
-        case .clear:
-            guard let bubble = qaInputBubbleView else {
-                pendingDraftQuestion = ""
-                presentToast("目前沒有內容可以清除")
-                resetVoiceDictationAfterCommand(resumeDictation: false)
-                return
-            }
-
-            bubble.clearValidationError()
-            bubble.onClear?()
-            bubble.setDraftText("")
-            presentToast("已清除")
-            resetVoiceDictationAfterCommand(resumeDictation: true)
+        if Thread.isMainThread {
+            execute()
+        } else {
+            DispatchQueue.main.async(execute: execute)
         }
     }
 
