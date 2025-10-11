@@ -186,13 +186,81 @@ class RecipeRecommendationService: RecipeRecommendationServiceProtocol {
     }
 
     private func convertToRecommendationResponse(from response: SuggestRecipeResponse) -> RecipeRecommendationResponse {
+        let sanitizedIngredients = sanitizeIngredients(response.ingredients)
+        let sanitizedEquipment = sanitizeEquipment(response.equipment)
+
         return RecipeRecommendationResponse(
             dishName: response.dish_name,
             dishDescription: response.dish_description,
-            ingredients: response.ingredients,
-            equipment: response.equipment,
+            ingredients: sanitizedIngredients,
+            equipment: sanitizedEquipment,
             recipe: response.recipe
         )
+    }
+
+    private func sanitizeIngredients(_ ingredients: [Ingredient]) -> [Ingredient] {
+        ingredients.compactMap { ingredient in
+            var cleaned = ingredient
+            if containsTimestamp(cleaned.name) {
+                return nil
+            }
+
+            if containsTimestamp(cleaned.type) {
+                cleaned.type = "其他"
+            }
+
+            if containsTimestamp(cleaned.preparation) {
+                cleaned.preparation = removeTimestampOccurrences(from: cleaned.preparation)
+            }
+
+            if containsTimestamp(cleaned.amount) {
+                cleaned.amount = "適量"
+            }
+
+            if containsTimestamp(cleaned.unit) {
+                cleaned.unit = ""
+            }
+
+            return cleaned
+        }
+    }
+
+    private func sanitizeEquipment(_ equipment: [Equipment]) -> [Equipment] {
+        equipment.compactMap { item in
+            var cleaned = item
+            if containsTimestamp(cleaned.name) {
+                return nil
+            }
+
+            if containsTimestamp(cleaned.type) {
+                cleaned.type = "其他設備"
+            }
+
+            if containsTimestamp(cleaned.material) {
+                cleaned.material = ""
+            }
+
+            if containsTimestamp(cleaned.power_source) {
+                cleaned.power_source = ""
+            }
+
+            return cleaned
+        }
+    }
+
+    private func containsTimestamp(_ value: String) -> Bool {
+        value.lowercased().contains("timestamp_")
+    }
+
+    private func removeTimestampOccurrences(from value: String) -> String {
+        let pattern = "timestamp_[0-9]+"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return value
+        }
+        let range = NSRange(value.startIndex..<value.endIndex, in: value)
+        return regex.stringByReplacingMatches(in: value, options: [], range: range, withTemplate: "")
+            .replacingOccurrences(of: "  ", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func convertToRecommendationError(_ error: Error) -> RecipeRecommendationError {

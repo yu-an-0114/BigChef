@@ -49,7 +49,13 @@ class PourLiquidAnimation: Animation {
         }
 
         if !labelText.isEmpty {
-            _ = ARText.addLabel(text: labelText, to: entity)
+            _ = ARText.addLabel(
+                text: labelText,
+                to: entity,
+                padding: 0.015,
+                maxWidthRatio: 0.95,
+                scaleMultiplier: 2.2
+            )
         }
         if let anim = entity.availableAnimations.first {
             let resource = isRepeat

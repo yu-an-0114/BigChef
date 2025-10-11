@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>API_BASE_URL</key>
-	<string>http://192.168.0.182:8080</string>
+	<string>http://172.20.10.2:8080</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>CookAri</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -28,8 +30,6 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>需要使用相機來顯示 AR 內容</string>
-	<key>CFBundleDisplayName</key>
-	<string>CookAri</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>此應用程式需要使用區域網路來連接烹飪 AI 伺服器</string>
 	<key>NSMicrophoneUsageDescription</key>

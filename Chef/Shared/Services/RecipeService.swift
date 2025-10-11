@@ -172,7 +172,10 @@ enum RecipeService {
 
         if let description = request.preference.recipe_description,
            !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            print("📝 使用者需求描述：\(description)")
+            let sanitizedDescription = stripCacheBusterSuffix(description).trimmingCharacters(in: extendedWhitespaces)
+            if !sanitizedDescription.isEmpty {
+                print("📝 使用者需求描述：\(sanitizedDescription)")
+            }
         }
 
         return try await generateRecipeByName(using: generateRequest)
@@ -185,9 +188,12 @@ enum RecipeService {
     /// 2. 從「製作 XXX」這類烹飪方式文字中提取的辨識菜名。
     /// 3. 以烹調方式與第一個主要食材組合出合理的菜名，若都缺少則使用預設文案。
     private static func deriveDishName(from request: SuggestRecipeRequest) -> String {
-        if let description = request.preference.recipe_description?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !description.isEmpty {
-            return description
+        if let rawDescription = request.preference.recipe_description?.trimmingCharacters(in: extendedWhitespaces),
+           !rawDescription.isEmpty {
+            let cleanedDescription = stripCacheBusterSuffix(rawDescription).trimmingCharacters(in: extendedWhitespaces)
+            if !cleanedDescription.isEmpty {
+                return cleanedDescription
+            }
         }
 
         let mainIngredient = request.available_ingredients
@@ -220,6 +226,26 @@ enum RecipeService {
 
     private static func trimExtendedWhitespaces(_ string: String) -> String {
         string.trimmingCharacters(in: extendedWhitespaces)
+    }
+
+    private static func stripCacheBusterSuffix(_ string: String) -> String {
+        guard let regex = try? NSRegularExpression(pattern: "\\s*\\[[0-9]+\\]\\s*$", options: []) else {
+            return string
+        }
+
+        var result = string
+        while true {
+            let range = NSRange(result.startIndex..<result.endIndex, in: result)
+            guard let match = regex.firstMatch(in: result, options: [], range: range) else {
+                break
+            }
+            if let swiftRange = Range(match.range, in: result) {
+                result.removeSubrange(swiftRange)
+            } else {
+                break
+            }
+        }
+        return result
     }
 
     private static func extractRecognizedDishName(from method: String, mainIngredient: String?) -> String? {

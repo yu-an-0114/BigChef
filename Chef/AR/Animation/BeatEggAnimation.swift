@@ -10,6 +10,7 @@ class BeatEggAnimation: Animation {
     private var beatEggInstance: Entity?
     private weak var arViewRef: ARView?
     private var detectionObserver: NSObjectProtocol?
+    private var containerCenter: SIMD3<Float>?
 
     init(container: Container, scale: Float = 1.0, isRepeat: Bool = false) {
         self.container = container
@@ -74,20 +75,23 @@ class BeatEggAnimation: Animation {
 
     private func applyScaleAndOffset(to entity: Entity, relativeTo anchor: AnchorEntity) {
         let dropHeight: Float = 0.3
-        entity.position = SIMD3<Float>(0, dropHeight - 0.2, 0)
+        let forwardOffset: Float = -0.28
+        entity.position = SIMD3<Float>(0, dropHeight - 0.4, forwardOffset)
 
         let bbox = normalizedBoundingBox() ?? CGRect(x: 0, y: 0, width: 0.2, height: 0.2)
         let normalizedMaxSide = max(Float(bbox.width), Float(bbox.height))
         let bounds = entity.visualBounds(recursive: true, relativeTo: anchor).extents
         let maxModelSide = max(bounds.x, bounds.y, bounds.z)
 
+        let scaleReduction: Float = 0.75
+
         guard normalizedMaxSide > 0, maxModelSide > 0 else {
-            entity.setScale(SIMD3<Float>(repeating: scale), relativeTo: anchor)
+            entity.setScale(SIMD3<Float>(repeating: scale * scaleReduction), relativeTo: anchor)
             return
         }
 
         let scaleFactor = normalizedMaxSide / maxModelSide
-        let finalScale = min(scale, scaleFactor)
+        let finalScale = min(scale, scaleFactor) * scaleReduction
         entity.setScale(SIMD3<Float>(repeating: finalScale), relativeTo: anchor)
     }
 
@@ -115,6 +119,13 @@ class BeatEggAnimation: Animation {
         }
     }
 
+    override func updatePosition(_ position: SIMD3<Float>) {
+        containerCenter = position
+        super.updatePosition(position)
+        guard let anchor = anchorEntity, let beatEgg = beatEggInstance else { return }
+        applyScaleAndOffset(to: beatEgg, relativeTo: anchor)
+    }
+
     override func updateBoundingBox(rect: CGRect) {
         containerBBox = rect
         guard let anchor = anchorEntity, let beatEgg = beatEggInstance else { return }
@@ -127,5 +138,6 @@ class BeatEggAnimation: Animation {
         arViewRef = nil
         stopObservingDetections()
         containerBBox = nil
+        containerCenter = nil
     }
 }

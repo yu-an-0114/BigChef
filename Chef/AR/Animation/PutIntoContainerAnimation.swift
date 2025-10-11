@@ -15,20 +15,20 @@ class PutIntoContainerAnimation: Animation {
 
     private let container: Container
     private let ingredientNames: [String]
-    private var currentIngredientIndex: Int = 0
     private var activeEntity: Entity?
     private weak var arViewRef: ARView?
-    private var completionObserver: NSObjectProtocol?
+    private var containerCenter: SIMD3<Float>?
 
     /// 最後一次更新的容器底部位置
     private var _containerPosition: SIMD3<Float>?
     var containerPosition: SIMD3<Float>? { _containerPosition }
 
-    /// 掉落持續時間
-    private let dropDuration: TimeInterval = 2
+    private let containerScalePadding: Float = 0.85
+    private let verticalLift: Float = 0.05
 
     private static var fallbackTextCache: [String: Entity] = [:]
     private static let fallbackTextLock = NSLock()
+    private var containerRect: CGRect?
 
     init(ingredientNames: [String],
          container: Container,
@@ -46,11 +46,6 @@ class PutIntoContainerAnimation: Animation {
         super.init(type: .putIntoContainer, scale: scale, isRepeat: isRepeat)
     }
 
-    private var nextIngredientIndex: Int {
-        guard !ingredientNames.isEmpty else { return 0 }
-        return (currentIngredientIndex + 1) % ingredientNames.count
-    }
-
     private func makeEntity(for ingredientName: String) -> Entity {
         let base = PutIntoContainerAnimation.resolveModel(
             ingredientName: ingredientName,
@@ -62,8 +57,7 @@ class PutIntoContainerAnimation: Animation {
         for child in entity.children {
             child.components.set(BillboardComponent())
         }
-        let startPosition = SIMD3<Float>(0, 0.2, -0.5)
-        entity.position = startPosition
+        entity.position = .zero
         return entity
     }
 
@@ -71,6 +65,54 @@ class PutIntoContainerAnimation: Animation {
         activeEntity?.removeFromParent()
         anchor.addChild(entity)
         activeEntity = entity
+    }
+
+    private func fitEntityToContainer(_ entity: Entity, anchor: AnchorEntity) {
+        guard let rect = containerRect else { return }
+        let bounds = entity.visualBounds(recursive: true, relativeTo: anchor).extents
+        let epsilon: Float = 1e-5
+        let sizeX = max(bounds.x, epsilon)
+        let sizeY = max(bounds.y, epsilon)
+        let sizeZ = max(bounds.z, epsilon)
+
+        let allowedWidth = max(Float(rect.width) * scale * containerScalePadding, 0.05)
+        let allowedHeight = max(Float(rect.height) * scale * containerScalePadding, 0.05)
+
+        let factorCandidates: [Float] = [
+            allowedWidth / sizeX,
+            allowedHeight / sizeY,
+            allowedWidth / sizeZ
+        ]
+        let factor = min(factorCandidates.min() ?? 1.0, 1.0)
+        guard factor < 1.0 else { return }
+
+        entity.scale = entity.scale * factor
+    }
+
+    private func resolveEntitySizeAndPlacement(_ entity: Entity, anchor: AnchorEntity) {
+        guard containerRect != nil else { return }
+        fitEntityToContainer(entity, anchor: anchor)
+        positionEntityAtBottom(entity, anchor: anchor)
+    }
+
+    private func positionEntityAtBottom(_ entity: Entity, anchor: AnchorEntity) {
+        guard let rect = containerRect else { return }
+        entity.transform.translation = .zero
+        let bounds = entity.visualBounds(recursive: true, relativeTo: anchor)
+        let halfHeight = Float(rect.height) * scale * 0.5
+        let minY = bounds.center.y - bounds.extents.y * 0.5
+        let offsetY = (-halfHeight) - minY + verticalLift
+        var translation = entity.transform.translation
+        translation.y += offsetY
+        entity.transform.translation = translation
+    }
+
+    private func updateActiveEntityPlacement() {
+        guard let anchor = anchorEntity, let entity = activeEntity else { return }
+        if let center = containerCenter {
+            anchor.transform.translation = center
+        }
+        resolveEntitySizeAndPlacement(entity, anchor: anchor)
     }
 
     private static func resolveModel(ingredientName: String, scale: Float) -> Entity {
@@ -112,24 +154,12 @@ class PutIntoContainerAnimation: Animation {
         return instance
     }
 
-    /// 新增：掉落動畫輔助
-    func drop(to targetPosition: SIMD3<Float>) {
-        guard let anchor = anchorEntity else { return }
-        // 直接移動 Anchor，所有子 Entity (模型和文字) 都會跟著
-        var t = anchor.transform
-        t.translation = targetPosition
-        anchor.move(
-            to: t,
-            relativeTo: anchor.parent,
-            duration: dropDuration,
-            timingFunction: .easeIn
-        )
-    }
-    /// 把模型加到 Anchor 並觸發掉落
+    /// 把模型加到 Anchor 並放置於容器底部
     override func applyAnimation(to anchor: AnchorEntity, on arView: ARView) {
         arViewRef = arView
-        currentIngredientIndex = 0
         activeEntity = nil
+        containerRect = nil
+        containerCenter = nil
 
         // ✅ 創建相機錨點，讓模型跟隨相機移動
         let cameraAnchor: AnchorEntity
@@ -145,69 +175,41 @@ class PutIntoContainerAnimation: Animation {
         // 將原本的 anchor 設為相機錨點的子物件
         anchor.setParent(cameraAnchor)
 
-        let initialName = ingredientNames[currentIngredientIndex]
+        let initialName = ingredientNames.first ?? ""
         let entity = makeEntity(for: initialName)
         replaceActiveEntity(with: entity, on: anchor)
 
-        dropToContainer()
-
-        // 完成後再度呼叫 drop(to:) 重播掉落
-        if let observer = completionObserver {
-            NotificationCenter.default.removeObserver(observer)
-            completionObserver = nil
-        }
-        completionObserver = NotificationCenter.default.addObserver(
-            forName: Notification.Name("PutIntoContainerAnimationCompleted"),
-            object: self,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self = self else { return }
-            self.prepareNextIngredient()
-            self.dropToContainer()
-        }
-
-        // 動畫結束後通知（保留原有觸發）
-        DispatchQueue.main.asyncAfter(deadline: .now() + dropDuration) { [weak self] in
-            guard let self = self else { return }
-            NotificationCenter.default
-                .post(name: .init("PutIntoContainerAnimationCompleted"),
-                      object: self)
-        }
+        updateActiveEntityPlacement()
     }
 
-    private func prepareNextIngredient() {
-        guard let anchor = anchorEntity else { return }
-        currentIngredientIndex = nextIngredientIndex
-        let name = ingredientNames[currentIngredientIndex]
-        let entity = makeEntity(for: name)
-        replaceActiveEntity(with: entity, on: anchor)
-    }
-
-    private func dropToContainer() {
-        guard let rawEnd = containerPosition, let anchor = anchorEntity else { return }
-        var startTransform = anchor.transform
-        startTransform.translation = rawEnd
-        anchor.transform = startTransform
-        var endPos = rawEnd
-        endPos.y -= 50
-        drop(to: endPos)
+    override func updatePosition(_ position: SIMD3<Float>) {
+        containerCenter = position
+        super.updatePosition(position)
+        updateActiveEntityPlacement()
     }
 
     /// 更新 bounding box 時，同步計算框底世界座標
     override func updateBoundingBox(rect: CGRect) {
         guard let anchor = anchorEntity else { return }
-        // 取得當前錨點世界座標
-        var pos = anchor.transform.translation
-        // 往下半個框高
-        pos.y -= Float(rect.height) * scale * 0.5
-        anchor.transform.translation = pos
-        _containerPosition = pos
+        containerRect = rect
+        let center = containerCenter ?? anchor.transform.translation
+        anchor.transform.translation = center
+        let halfHeight = Float(rect.height) * scale * 0.5
+        var bottom = center
+        bottom.y -= halfHeight
+        _containerPosition = bottom
+        updateActiveEntityPlacement()
+    }
+
+    override func stop() {
+        super.stop()
+        containerRect = nil
+        _containerPosition = nil
+        containerCenter = nil
+        activeEntity = nil
     }
 
     deinit {
-        if let observer = completionObserver {
-            NotificationCenter.default.removeObserver(observer)
-            completionObserver = nil
-        }
+        activeEntity = nil
     }
 }
