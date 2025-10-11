@@ -297,7 +297,7 @@ final class QAKeywordVoiceService: NSObject {
     }
 
     private func handleSpeechRecognitionError(_ error: NSError) -> Bool {
-        guard error.domain == SFSpeechRecognitionErrorDomain else {
+        guard Self.speechRecognitionErrorDomains.contains(error.domain) else {
             return false
         }
 
@@ -324,4 +324,18 @@ final class QAKeywordVoiceService: NSObject {
 
         return false
     }
+}
+
+private extension QAKeywordVoiceService {
+    /// Known Foundation domain identifiers that Apple uses for speech recognizer errors.
+    ///
+    /// - `kAFAssistantErrorDomain` is what iOS reports at runtime.
+    /// - `SFSpeechRecognitionErrorDomain` is the symbolic name referenced in documentation.
+    ///
+    /// Some SDK versions expose only the raw string, so we check against both values instead of
+    /// relying on a single framework constant that may be missing on certain platforms.
+    static let speechRecognitionErrorDomains: Set<String> = [
+        "SFSpeechRecognitionErrorDomain",
+        "kAFAssistantErrorDomain"
+    ]
 }
