@@ -121,6 +121,3 @@ iOSInjectionProject/
 # Claude AI
 .claude/
 
-**/GoogleService-Info.plist
-**/Config.plist
-
