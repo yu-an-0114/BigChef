@@ -117,82 +117,88 @@ enum RecipeService {
     private static func generateRecipeUsingFallback(request: RecognizedFoodRecipeRequest) async throws -> SuggestRecipeResponse {
         print("🔄 使用備用方案生成 \(request.recognizedFoodName) 的食譜")
 
-        // 將辨識的食物名稱作為主要需求
-        let fallbackRequest = SuggestRecipeRequest(
-            available_ingredients: request.recognizedIngredients.map { ingredient in
-                Ingredient(
-                    name: ingredient,
-                    type: "食材",
-                    amount: "適量",
-                    unit: "",
-                    preparation: ""
-                )
-            },
-            available_equipment: request.recognizedEquipment.map { equipment in
-                Equipment(
-                    name: equipment,
-                    type: "器具",
-                    size: "",
-                    material: "",
-                    power_source: ""
-                )
-            },
-            preference: Preference(
+        let timestamp = Date().timeIntervalSince1970
+        let cacheBuster = String(format: "%.0f", timestamp)
+
+        let fallbackRequest = GenerateRecipeByNameRequest(
+            dish_name: request.recognizedFoodName,
+            preferred_ingredients: request.recognizedIngredients + ["timestamp_\(cacheBuster)"],
+            excluded_ingredients: [],
+            preferred_equipment: request.recognizedEquipment,
+            preference: GenerateRecipeByNameRequest.GeneratePreference(
                 cooking_method: "製作 \(request.recognizedFoodName)",
-                dietary_restrictions: [],
+                doneness: nil,
                 serving_size: "\(request.servings)人份"
             )
         )
 
-        return try await generateRecipe(using: fallbackRequest)
+        return try await generateRecipeByName(using: fallbackRequest)
     }
 
     // MARK: - 食譜生成 async 函式
     static func generateRecipe(using request: SuggestRecipeRequest) async throws -> SuggestRecipeResponse {
-        guard let url = URL(string: "\(baseURL)/api/v1/recipe/suggest") else {
-            throw NetworkError.invalidURL
-        }
-        print(baseURL)
-        var urlRequest = URLRequest(url: url)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let timestamp = Date().timeIntervalSince1970
+        let cacheBuster = String(format: "%.0f", timestamp)
 
-        do {
-            let jsonData = try JSONEncoder().encode(request)
-            urlRequest.httpBody = jsonData
+        var preferredIngredients = request.available_ingredients
+            .map { $0.name }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
-            if let jsonString = String(data: jsonData, encoding: .utf8) {
-                print("🟢 發送食譜生成請求：\n\(jsonString)")
-            }
-        } catch {
-            print("❌ 請求編碼失敗：\(error)")
-            throw error
-        }
-        
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        preferredIngredients.append("timestamp_\(cacheBuster)")
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            print("❌ 無效的伺服器回應")
-            throw NetworkError.invalidResponse
+        let preferredEquipment = request.available_equipment
+            .map { $0.name }
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+        let excludedIngredients = request.preference.dietary_restrictions
+
+        let cookingMethod = request.preference.cooking_method == "一般烹調" ? nil : request.preference.cooking_method
+
+        let derivedDishName = deriveDishName(from: request)
+
+        let generateRequest = GenerateRecipeByNameRequest(
+            dish_name: derivedDishName,
+            preferred_ingredients: preferredIngredients,
+            excluded_ingredients: excludedIngredients,
+            preferred_equipment: preferredEquipment,
+            preference: GenerateRecipeByNameRequest.GeneratePreference(
+                cooking_method: cookingMethod,
+                doneness: nil,
+                serving_size: request.preference.serving_size
+            )
+        )
+
+        print("🛠️ 轉換食譜請求 -> 目標菜名：\(generateRequest.dish_name)")
+
+        if let description = request.preference.recipe_description,
+           !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            print("📝 使用者需求描述：\(description)")
         }
-        
-        guard (200...299).contains(httpResponse.statusCode) else {
-            print("❌ HTTP 錯誤：\(httpResponse.statusCode)")
-            throw NetworkError.httpError(httpResponse.statusCode)
+
+        return try await generateRecipeByName(using: generateRequest)
+    }
+
+    private static func deriveDishName(from request: SuggestRecipeRequest) -> String {
+        if let description = request.preference.recipe_description?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !description.isEmpty {
+            return description
         }
-        
-        do {
-            let decoded = try JSONDecoder().decode(SuggestRecipeResponse.self, from: data)
-            if let jsonString = String(data: data, encoding: .utf8) {
-                print("✅ AI 回傳食譜：\n\(jsonString)")
-            }
-            return decoded
-        } catch {
-            if let raw = String(data: data, encoding: .utf8) {
-                print("🔴 AI 回傳原始資料：\n\(raw)")
-            }
-            print("❌ 解碼失敗：\(error)")
-            throw error
+
+        let mainIngredient = request.available_ingredients
+            .map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+
+        let method = request.preference.cooking_method.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        switch (method.isEmpty || method == "一般烹調", mainIngredient) {
+        case (false, .some(let ingredient)):
+            return "\(method)\(ingredient)"
+        case (false, .none):
+            return method
+        case (true, .some(let ingredient)):
+            return "\(ingredient)創意料理"
+        default:
+            return "AI 創意料理"
         }
     }
     // MARK: - 食物辨識 async 函式
