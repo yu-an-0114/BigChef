@@ -54,8 +54,8 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     var qaInputBubbleView: CookQAInputBubbleView?
     private var qaBubbleDismissTap: UITapGestureRecognizer?
     var pendingDraftQuestion: String = ""
-    let qaWakeWord = "阿里"
-    lazy var qaVoiceService = QAKeywordVoiceService(wakeWord: qaWakeWord)
+    let qaWakeWord = CookAssistResourcePreloader.defaultWakeWord
+    lazy var qaVoiceService = CookAssistResourcePreloader.shared.voiceService(wakeWord: qaWakeWord)
     var isVoiceDictationActive = false
     var shouldStartDictationAfterBubblePresented = false
     var baselineDictationTranscript: String?
@@ -371,17 +371,19 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
     }
 
     private func loadQAInteractionModel() {
-        guard let url = Bundle.main.url(forResource: "firebaby", withExtension: "usdz") else {
-            return
-        }
-
-        do {
-            let scene = try SCNScene(url: url, options: nil)
-            qaModelView.scene = scene
-            qaModelView.scene?.background.contents = UIColor.clear
-            qaModelView.pointOfView = makeQAInteractionCameraIfNeeded(for: scene)
-        } catch {
-            print("⚠️ [CookViewController] 無法載入 ingredient.usdz: \(error)")
+        Task { [weak self] in
+            guard let self else { return }
+            let scene = await CookAssistResourcePreloader.shared.qaInteractionScene()
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                guard let scene else {
+                    print("⚠️ [CookViewController] 無法載入 firebaby.usdz 資源")
+                    return
+                }
+                self.qaModelView.scene = scene
+                self.qaModelView.scene?.background.contents = UIColor.clear
+                self.qaModelView.pointOfView = self.makeQAInteractionCameraIfNeeded(for: scene)
+            }
         }
     }
 
