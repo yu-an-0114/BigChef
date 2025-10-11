@@ -185,10 +185,14 @@ enum RecipeService {
         }
 
         let mainIngredient = request.available_ingredients
-            .map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { trimExtendedWhitespaces($0.name) }
             .first { !$0.isEmpty }
 
-        let method = request.preference.cooking_method.trimmingCharacters(in: .whitespacesAndNewlines)
+        let method = trimExtendedWhitespaces(request.preference.cooking_method)
+
+        if let recognizedDishName = extractRecognizedDishName(from: method, mainIngredient: mainIngredient) {
+            return recognizedDishName
+        }
 
         switch (method.isEmpty || method == "一般烹調", mainIngredient) {
         case (false, .some(let ingredient)):
@@ -200,6 +204,53 @@ enum RecipeService {
         default:
             return "AI 創意料理"
         }
+    }
+
+    private static let extendedWhitespaces: CharacterSet = {
+        var set = CharacterSet.whitespacesAndNewlines
+        set.insert(charactersIn: "\u{3000}") // 全形空白
+        return set
+    }()
+
+    private static func trimExtendedWhitespaces(_ string: String) -> String {
+        string.trimmingCharacters(in: extendedWhitespaces)
+    }
+
+    private static func extractRecognizedDishName(from method: String, mainIngredient: String?) -> String? {
+        let trimmedMethod = trimExtendedWhitespaces(method)
+        guard !trimmedMethod.isEmpty else { return nil }
+
+        let pattern = "^製作[\\s\u{3000}:：-]*([^\\s].*)$"
+
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return nil
+        }
+
+        let range = NSRange(trimmedMethod.startIndex..<trimmedMethod.endIndex, in: trimmedMethod)
+
+        guard let match = regex.firstMatch(in: trimmedMethod, options: [], range: range),
+              match.numberOfRanges >= 2,
+              let capturedRange = Range(match.range(at: 1), in: trimmedMethod) else {
+            return nil
+        }
+
+        var recognizedName = trimExtendedWhitespaces(String(trimmedMethod[capturedRange]))
+
+        guard !recognizedName.isEmpty else { return nil }
+
+        if let ingredient = mainIngredient, !ingredient.isEmpty {
+            let trimmedIngredient = trimExtendedWhitespaces(ingredient)
+
+            if !trimmedIngredient.isEmpty,
+               recognizedName.hasSuffix(trimmedIngredient) {
+                let potentialName = trimExtendedWhitespaces(String(recognizedName.dropLast(trimmedIngredient.count)))
+                if !potentialName.isEmpty {
+                    recognizedName = potentialName
+                }
+            }
+        }
+
+        return recognizedName
     }
     // MARK: - 食物辨識 async 函式
     static func recognizeFood(using request: FoodRecognitionRequest) async throws -> FoodRecognitionResponse {
