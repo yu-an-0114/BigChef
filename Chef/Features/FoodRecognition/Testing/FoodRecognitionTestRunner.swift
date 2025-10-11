@@ -631,7 +631,7 @@ final class FoodRecognitionTestRunner: ObservableObject {
     private func testMultithreadingStability() async -> Bool {
         return await withTaskGroup(of: Bool.self) { group in
             // 在主線程上並行執行多個任務
-            for i in 1...5 {
+            for _ in 1...5 {
                 group.addTask { @MainActor in
                     let viewModel = FoodRecognitionViewModel()
                     let testImage = self.createTestImage()
