@@ -402,7 +402,7 @@ final class CookViewController: UIViewController, ARGestureDelegate, UIGestureRe
         qaModelView.alpha = enabled ? 1.0 : 0.5
     }
 
-    private func dismissQABubble(animated: Bool = true, persistDraft: Bool = true) {
+    fileprivate func dismissQABubble(animated: Bool = true, persistDraft: Bool = true) {
         let answerBubble = qaBubbleView
         let inputBubble = qaInputBubbleView
         guard answerBubble != nil || inputBubble != nil else { return }

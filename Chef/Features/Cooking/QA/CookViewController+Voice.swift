@@ -1,6 +1,12 @@
 import Foundation
 import UIKit
 
+private struct VoiceCommandDetectionResult {
+    let command: CookVoiceCommand
+    let normalizedText: String
+    let matchRange: Range<String.Index>
+}
+
 extension CookViewController {
     func setupQAVoiceService() {
         qaVoiceService.keywordTranscriptLogger = { [weak self] transcript in
@@ -157,22 +163,48 @@ extension CookViewController {
     }
 
     private func handleVoiceCommandIfNeeded(from text: String) -> Bool {
-        guard let command = detectVoiceCommand(in: text) else { return false }
+        guard let detection = detectVoiceCommand(in: text) else { return false }
 
+        let command = detection.command
         print("🎯 [QAVoiceService] Detected voice command: \(command.rawValue) (input: \(text))")
 
         let inputBubble = qaInputBubbleView
         let hasInputBubble = inputBubble != nil
         let isInputActive = inputBubble?.isInputActive ?? false
 
+        let bubbleHasUserDraft: Bool = {
+            let draft = inputBubble?.currentDraftText().trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let pending = pendingDraftQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !draft.isEmpty || !pending.isEmpty
+        }()
+
+        let hasExtraCharactersBeyondCommand: Bool = {
+            var remainder = detection.normalizedText
+            remainder.removeSubrange(detection.matchRange)
+
+            let wakeNormalized = normalizeVoiceCommandText(qaWakeWord)
+            if !wakeNormalized.isEmpty {
+                while let wakeRange = remainder.range(of: wakeNormalized) {
+                    remainder.removeSubrange(wakeRange)
+                }
+            }
+
+            return !remainder.isEmpty
+        }()
+
         switch command {
         case .nextStep, .previousStep:
-            if hasInputBubble && isInputActive {
+            if hasInputBubble && isInputActive && (bubbleHasUserDraft || hasExtraCharactersBeyondCommand) {
                 print("📝 [QAVoiceService] Input bubble active, treating command as dictation text.")
                 return false
             }
 
             guard shouldProcessVoiceCommand(command) else { return true }
+
+            if hasInputBubble {
+                dismissQABubble(animated: false, persistDraft: false)
+            }
+
             performVoiceCommand(command)
             return true
 
@@ -198,9 +230,11 @@ extension CookViewController {
         }
     }
 
-    private func detectVoiceCommand(in text: String) -> CookVoiceCommand? {
+    private func detectVoiceCommand(in text: String) -> VoiceCommandDetectionResult? {
         if let directMatch = CookVoiceCommand(rawValue: text) {
-            return directMatch
+            let normalized = normalizeVoiceCommandText(text)
+            let range = normalized.startIndex..<normalized.endIndex
+            return VoiceCommandDetectionResult(command: directMatch, normalizedText: normalized, matchRange: range)
         }
 
         let normalized = normalizeVoiceCommandText(text)
@@ -226,7 +260,8 @@ extension CookViewController {
             }
         }
 
-        return bestMatch?.command
+        guard let match = bestMatch else { return nil }
+        return VoiceCommandDetectionResult(command: match.command, normalizedText: normalized, matchRange: match.range)
     }
 
     private func normalizeVoiceCommandText(_ text: String) -> String {
