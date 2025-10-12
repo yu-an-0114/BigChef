@@ -84,13 +84,13 @@ struct AnimationFactory {
         case .peel:
             return PeelAnimation(
                 ingredient: params.ingredient,
-                scale: 0.05,
+                scale: 0.03,
                 isRepeat: true
             )
         case .beatEgg:
             return BeatEggAnimation(
                 container: params.container ?? .pan,
-                scale: 0.03,
+                scale: 0.04,
                 isRepeat: true
             )
         }

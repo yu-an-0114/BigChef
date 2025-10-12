@@ -12,6 +12,7 @@ class TorchAnimation: Animation {
     private let torchModel: Entity
     private let ingredient: String?
     private let distance: Float
+    private let scaleMultiplier: Float = 0.8
 
     init(ingredient: String? = nil,
          scale: Float,
@@ -37,13 +38,20 @@ class TorchAnimation: Animation {
     /// 加入 Anchor 並播放動畫（固定放在鏡頭前方）
     override func applyAnimation(to anchor: AnchorEntity, on arView: ARView) {
         let model = torchModel.clone(recursive: true)
-        let adjustedScale = scale * 0.8
-        model.scale = SIMD3<Float>(repeating: adjustedScale)
+        let wrapper = Entity()
+        wrapper.name = "TorchAnimationWrapper"
+        wrapper.addChild(model)
+        applyScale(to: wrapper)
         if let name = ingredient, !name.isEmpty {
-            _ = ARText.addLabel(text: name, to: model)
+            _ = ARText.addLabel(
+                text: name,
+                to: wrapper,
+                padding: 0.05,
+                scaleMultiplier: max(scale * 6.0, 1.0)
+            )
         }
         anchor.position = SIMD3<Float>(0, -0.5, -distance)
-        anchor.addChild(model)
+        anchor.addChild(wrapper)
 
         // 以相機為基準的錨點，確保距離可控；重用同一個 camera anchor，避免多重父層造成位置看似不變
         let cameraAnchor: AnchorEntity
@@ -69,5 +77,10 @@ class TorchAnimation: Animation {
 
     override func updateBoundingBox(rect: CGRect) {
         // no-op
+    }
+
+    private func applyScale(to wrapper: Entity) {
+        let finalScalar = max(scale * scaleMultiplier, 0.01)
+        wrapper.transform.scale = SIMD3<Float>(repeating: finalScalar)
     }
 }

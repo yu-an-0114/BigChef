@@ -15,9 +15,11 @@ class PutIntoContainerAnimation: Animation {
 
     private let container: Container
     private let ingredientNames: [String]
+    private var currentIngredientIndex: Int = 0
     private var activeEntity: Entity?
     private weak var arViewRef: ARView?
     private var containerCenter: SIMD3<Float>?
+    private var cycleTimer: DispatchSourceTimer?
 
     /// 最後一次更新的容器底部位置
     private var _containerPosition: SIMD3<Float>?
@@ -158,28 +160,19 @@ class PutIntoContainerAnimation: Animation {
     override func applyAnimation(to anchor: AnchorEntity, on arView: ARView) {
         arViewRef = arView
         activeEntity = nil
+        cycleTimer?.cancel()
+        cycleTimer = nil
+        currentIngredientIndex = 0
         containerRect = nil
         containerCenter = nil
 
-        // ✅ 創建相機錨點，讓模型跟隨相機移動
-        let cameraAnchor: AnchorEntity
-        if let existing = arView.scene.findEntity(named: "PutIntoContainerCameraAnchor") as? AnchorEntity {
-            cameraAnchor = existing
-        } else {
-            let ca = AnchorEntity(.camera)
-            ca.name = "PutIntoContainerCameraAnchor"
-            arView.scene.addAnchor(ca)
-            cameraAnchor = ca
-        }
-
-        // 將原本的 anchor 設為相機錨點的子物件
-        anchor.setParent(cameraAnchor)
-
+        currentIngredientIndex = 0
         let initialName = ingredientNames.first ?? ""
         let entity = makeEntity(for: initialName)
         replaceActiveEntity(with: entity, on: anchor)
 
         updateActiveEntityPlacement()
+        startIngredientCycle()
     }
 
     override func updatePosition(_ position: SIMD3<Float>) {
@@ -207,9 +200,38 @@ class PutIntoContainerAnimation: Animation {
         _containerPosition = nil
         containerCenter = nil
         activeEntity = nil
+        cycleTimer?.cancel()
+        cycleTimer = nil
     }
 
     deinit {
         activeEntity = nil
+        cycleTimer?.cancel()
+        cycleTimer = nil
+    }
+
+    private func startIngredientCycle() {
+        guard ingredientNames.count > 1 else { return }
+
+        cycleTimer?.cancel()
+
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now() + 1.0, repeating: 1.0)
+        timer.setEventHandler { [weak self] in
+            self?.cycleToNextIngredient()
+        }
+        cycleTimer = timer
+        timer.resume()
+    }
+
+    private func cycleToNextIngredient() {
+        guard !ingredientNames.isEmpty,
+              let anchor = anchorEntity else { return }
+
+        currentIngredientIndex = (currentIngredientIndex + 1) % ingredientNames.count
+        let name = ingredientNames[currentIngredientIndex]
+        let entity = makeEntity(for: name)
+        replaceActiveEntity(with: entity, on: anchor)
+        updateActiveEntityPlacement()
     }
 }

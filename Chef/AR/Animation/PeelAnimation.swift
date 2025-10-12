@@ -12,6 +12,7 @@ class PeelAnimation: Animation {
     private let peelModel: Entity
     private let ingredient: String?
     private let distance: Float
+    private let scaleMultiplier: Float = 0.4
 
     init(ingredient: String? = nil,
          scale: Float,
@@ -37,12 +38,19 @@ class PeelAnimation: Animation {
     override func applyAnimation(to anchor: AnchorEntity, on arView: ARView) {
         // 建立模型
         let model = peelModel.clone(recursive: true)
-        let adjustedScale = scale * 0.8
-        model.scale = SIMD3<Float>(repeating: adjustedScale)
-        anchor.addChild(model)
+        let wrapper = Entity()
+        wrapper.name = "PeelAnimationWrapper"
+        wrapper.addChild(model)
+        anchor.addChild(wrapper)
+        applyScale(to: wrapper)
 
         if let ingredient = ingredient {
-            _ = ARText.addLabel(text: ingredient, to: model, padding: 0.04)
+            _ = ARText.addLabel(
+                text: ingredient,
+                to: wrapper,
+                padding: 0.04,
+                scaleMultiplier: max(scale * 8.0, 1.0)
+            )
         }
 
         // 以相機為基準的錨點；重用同一個 camera anchor
@@ -71,5 +79,10 @@ class PeelAnimation: Animation {
 
     override func updateBoundingBox(rect: CGRect) {
         // no-op
+    }
+
+    private func applyScale(to wrapper: Entity) {
+        let finalScalar = max(scale * scaleMultiplier, 0.01)
+        wrapper.transform.scale = SIMD3<Float>(repeating: finalScalar)
     }
 }
