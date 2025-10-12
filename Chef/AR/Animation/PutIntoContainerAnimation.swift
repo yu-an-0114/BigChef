@@ -53,14 +53,17 @@ class PutIntoContainerAnimation: Animation {
             ingredientName: ingredientName,
             scale: scale
         )
-        let entity = base.clone(recursive: true)
-        entity.scale = SIMD3<Float>(repeating: scale)
-        entity.components.set(BillboardComponent())
-        for child in entity.children {
-            child.components.set(BillboardComponent())
-        }
-        entity.position = .zero
-        return entity
+        let content = base.clone(recursive: true)
+        sanitizeEntityHierarchy(content)
+
+        let wrapper = Entity()
+        wrapper.name = "PutIntoContainerWrapper_\(ingredientName)"
+        wrapper.addChild(content)
+        wrapper.components.set(BillboardComponent())
+        applyBillboard(to: content)
+        content.position = .zero
+        wrapper.position = .zero
+        return wrapper
     }
 
     private func replaceActiveEntity(with entity: Entity, on anchor: AnchorEntity) {
@@ -141,12 +144,14 @@ class PutIntoContainerAnimation: Animation {
            let baseTemplate = try? AnimationModelCache.entity(for: fallbackURL) {
             let base = baseTemplate.clone(recursive: true)
             _ = ARText.addLabel(text: ingredientName, to: base, padding: 0.03, maxWidthRatio: 0.85)
+            sanitizeEntityHierarchy(base)
             template = base
         } else {
             let holder = Entity()
             let halfExtents = SIMD3<Float>(0.15, 0.05, 0.05)
             let bounds = BoundingBox(min: -halfExtents, max: halfExtents)
             _ = ARText.addLabel(text: ingredientName, to: holder, padding: 0.02, maxWidthRatio: 1.0, boundingOverride: bounds)
+            sanitizeEntityHierarchy(holder)
             template = holder
         }
 
@@ -208,6 +213,24 @@ class PutIntoContainerAnimation: Animation {
         activeEntity = nil
         cycleTimer?.cancel()
         cycleTimer = nil
+    }
+
+    private func sanitizeEntityHierarchy(_ entity: Entity) {
+        entity.components.remove(AnchoringComponent.self)
+        entity.components.remove(SynchronizationComponent.self)
+        entity.components.remove(PhysicsBodyComponent.self)
+        entity.components.remove(PhysicsMotionComponent.self)
+        entity.components.remove(CollisionComponent.self)
+        for child in entity.children {
+            sanitizeEntityHierarchy(child)
+        }
+    }
+
+    private func applyBillboard(to entity: Entity) {
+        entity.components.set(BillboardComponent())
+        for child in entity.children {
+            applyBillboard(to: child)
+        }
     }
 
     private func startIngredientCycle() {

@@ -41,6 +41,7 @@ class TorchAnimation: Animation {
         let wrapper = Entity()
         wrapper.name = "TorchAnimationWrapper"
         wrapper.addChild(model)
+        sanitizeAnchoring(for: wrapper)
         applyScale(to: wrapper)
         if let name = ingredient, !name.isEmpty {
             _ = ARText.addLabel(
@@ -82,5 +83,13 @@ class TorchAnimation: Animation {
     private func applyScale(to wrapper: Entity) {
         let finalScalar = max(scale * scaleMultiplier, 0.01)
         wrapper.transform.scale = SIMD3<Float>(repeating: finalScalar)
+    }
+
+    private func sanitizeAnchoring(for entity: Entity) {
+        entity.components.remove(AnchoringComponent.self)
+        entity.components.remove(SynchronizationComponent.self)
+        for child in entity.children {
+            sanitizeAnchoring(for: child)
+        }
     }
 }
