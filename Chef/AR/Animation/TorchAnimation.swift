@@ -37,10 +37,14 @@ class TorchAnimation: Animation {
 
     /// 加入 Anchor 並播放動畫（固定放在鏡頭前方）
     override func applyAnimation(to anchor: AnchorEntity, on arView: ARView) {
-        let model = torchModel.clone(recursive: true)
+        var content = torchModel.clone(recursive: true)
+        removeSupportNodes(from: content)
+        content = flattenRenderableContent(content)
+        sanitizeAnchoring(for: content)
+
         let wrapper = Entity()
         wrapper.name = "TorchAnimationWrapper"
-        wrapper.addChild(model)
+        wrapper.addChild(content)
         sanitizeAnchoring(for: wrapper)
         applyScale(to: wrapper)
         if let name = ingredient, !name.isEmpty {
@@ -64,13 +68,17 @@ class TorchAnimation: Animation {
             arView.scene.addAnchor(ca)
             cameraAnchor = ca
         }
-        anchor.setParent(cameraAnchor)
-        anchor.position = SIMD3<Float>(0, 0, -distance)
+        anchor.setParent(cameraAnchor, preservingWorldTransform: false)
+        anchor.transform = Transform(
+            scale: .one,
+            rotation: simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0)),
+            translation: SIMD3<Float>(0, -0.5, -distance)
+        )
 
         // 播放動畫
-        if let clip = model.availableAnimations.first {
+        if let clip = content.availableAnimations.first {
             let resource = isRepeat ? clip.repeat(duration: .infinity) : clip
-            model.playAnimation(resource, transitionDuration: 0.1, startsPaused: false)
+            content.playAnimation(resource, transitionDuration: 0.1, startsPaused: false)
         } else {
             print("⚠️ [TorchAnimation] USDZ 無可用動畫：torch")
         }
@@ -88,8 +96,47 @@ class TorchAnimation: Animation {
     private func sanitizeAnchoring(for entity: Entity) {
         entity.components.remove(AnchoringComponent.self)
         entity.components.remove(SynchronizationComponent.self)
+        entity.components.remove(PhysicsBodyComponent.self)
+        entity.components.remove(PhysicsMotionComponent.self)
+        entity.components.remove(CollisionComponent.self)
         for child in entity.children {
             sanitizeAnchoring(for: child)
         }
+    }
+
+    private func removeSupportNodes(from entity: Entity) {
+        for child in Array(entity.children) {
+            let lower = child.name.lowercased()
+            if lower.hasPrefix("_") || lower.contains("light") || lower.contains("camera") || lower.contains("env") {
+                entity.removeChild(child)
+            } else {
+                removeSupportNodes(from: child)
+            }
+        }
+    }
+
+    private func flattenRenderableContent(_ entity: Entity) -> Entity {
+        var current = entity
+        while current.children.count == 1,
+              let child = current.children.first,
+              shouldFlattenNode(parentName: current.name, childName: child.name) {
+            let matrix = child.transformMatrix(relativeTo: current)
+            child.transform = Transform(matrix: matrix)
+            current.removeChild(child)
+            current = child
+        }
+        return current
+    }
+
+    private func shouldFlattenNode(parentName: String, childName: String) -> Bool {
+        let parent = parentName.lowercased()
+        let child = childName.lowercased()
+        if parent.isEmpty || parent == "root" || parent == "world" || parent.hasPrefix("world") {
+            return true
+        }
+        if child == "world" || child.hasPrefix("world") {
+            return true
+        }
+        return false
     }
 }

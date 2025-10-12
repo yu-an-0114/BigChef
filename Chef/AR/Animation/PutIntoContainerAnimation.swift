@@ -3,6 +3,10 @@ import simd
 import RealityKit
 import ARKit
 
+private struct BaseScaleComponent: Component {
+    var value: Float
+}
+
 /// 定義容器類型
 enum Container: String, CaseIterable, Codable {
     case airFryer, bowl, microWaveOven, oven, pan, plate, riceCooker, soupPot
@@ -53,13 +57,25 @@ class PutIntoContainerAnimation: Animation {
             ingredientName: ingredientName,
             scale: scale
         )
-        let content = base.clone(recursive: true)
-        sanitizeEntityHierarchy(content)
+        var content = base.clone(recursive: true)
+        if let anchored = content as? AnchorEntity {
+            let replacement = Entity()
+            replacement.name = anchored.name
+            for child in anchored.children {
+                replacement.addChild(child)
+            }
+            anchored.children.removeAll()
+            content = replacement
+        }
+
+        Self.sanitizeEntityHierarchy(content)
 
         let wrapper = Entity()
         wrapper.name = "PutIntoContainerWrapper_\(ingredientName)"
         wrapper.addChild(content)
         wrapper.components.set(BillboardComponent())
+        wrapper.components.set(BaseScaleComponent(value: scale))
+        wrapper.transform.scale = SIMD3<Float>(repeating: scale)
         applyBillboard(to: content)
         content.position = .zero
         wrapper.position = .zero
@@ -73,6 +89,9 @@ class PutIntoContainerAnimation: Animation {
     }
 
     private func fitEntityToContainer(_ entity: Entity, anchor: AnchorEntity) {
+        let baseScale = entity.components[BaseScaleComponent.self]?.value ?? 1.0
+        entity.transform.scale = SIMD3<Float>(repeating: baseScale)
+
         guard let rect = containerRect else { return }
         let bounds = entity.visualBounds(recursive: true, relativeTo: anchor).extents
         let epsilon: Float = 1e-5
@@ -80,18 +99,18 @@ class PutIntoContainerAnimation: Animation {
         let sizeY = max(bounds.y, epsilon)
         let sizeZ = max(bounds.z, epsilon)
 
-        let allowedWidth = max(Float(rect.width) * scale * containerScalePadding, 0.05)
-        let allowedHeight = max(Float(rect.height) * scale * containerScalePadding, 0.05)
+        let allowedWidth = max(Float(rect.width) * containerScalePadding, 0.05)
+        let allowedDepth = max(Float(rect.width) * containerScalePadding, 0.05)
+        let allowedHeight = max(Float(rect.height) * containerScalePadding, 0.05)
 
         let factorCandidates: [Float] = [
             allowedWidth / sizeX,
             allowedHeight / sizeY,
-            allowedWidth / sizeZ
+            allowedDepth / sizeZ
         ]
         let factor = min(factorCandidates.min() ?? 1.0, 1.0)
-        guard factor < 1.0 else { return }
-
-        entity.scale = entity.scale * factor
+        let finalScalar = max(baseScale * factor, 0.001)
+        entity.transform.scale = SIMD3<Float>(repeating: finalScalar)
     }
 
     private func resolveEntitySizeAndPlacement(_ entity: Entity, anchor: AnchorEntity) {
@@ -114,10 +133,15 @@ class PutIntoContainerAnimation: Animation {
 
     private func updateActiveEntityPlacement() {
         guard let anchor = anchorEntity, let entity = activeEntity else { return }
+        let target: SIMD3<Float>
         if let center = containerCenter {
+            target = center
             anchor.transform.translation = center
+        } else {
+            target = anchor.transform.translation
         }
         resolveEntitySizeAndPlacement(entity, anchor: anchor)
+        anchor.transform.translation = target
     }
 
     private static func resolveModel(ingredientName: String, scale: Float) -> Entity {
@@ -157,7 +181,17 @@ class PutIntoContainerAnimation: Animation {
 
         fallbackTextCache[ingredientName] = template
         let instance = template.clone(recursive: true)
-        instance.scale = SIMD3<Float>(repeating: scale)
+        if let anchored = instance as? AnchorEntity {
+            let replacement = Entity()
+            replacement.name = anchored.name
+            for child in anchored.children {
+                replacement.addChild(child)
+            }
+            anchored.children.removeAll()
+            sanitizeEntityHierarchy(replacement)
+            return replacement
+        }
+        sanitizeEntityHierarchy(instance)
         return instance
     }
 
@@ -215,7 +249,7 @@ class PutIntoContainerAnimation: Animation {
         cycleTimer = nil
     }
 
-    private func sanitizeEntityHierarchy(_ entity: Entity) {
+    private static func sanitizeEntityHierarchy(_ entity: Entity) {
         entity.components.remove(AnchoringComponent.self)
         entity.components.remove(SynchronizationComponent.self)
         entity.components.remove(PhysicsBodyComponent.self)
